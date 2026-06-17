@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { UserProfile } from "../types";
 import { motion, AnimatePresence } from "motion/react";
-import { LogIn, Sparkles, AlertCircle, HelpCircle, ShieldCheck } from "lucide-react";
+import { LogIn, Sparkles, AlertCircle, HelpCircle, ShieldCheck, ShieldAlert, BookOpen } from "lucide-react";
+import { signInWithGoogleSupabase, isSupabaseConfigured } from "../lib/supabase";
 
 interface WelcomeScreenProps {
   onLogin: (profile: UserProfile) => void;
@@ -12,6 +13,42 @@ export default function WelcomeScreen({ onLogin }: WelcomeScreenProps) {
   const [customName, setCustomName] = useState<string>("");
   const [customEmail, setCustomEmail] = useState<string>("");
   const [showCustomForm, setShowCustomForm] = useState<boolean>(false);
+
+  const [loading, setLoading] = useState<boolean>(false);
+  const [errorMsg, setErrorMsg] = useState<string>("");
+  const [showHelpConfig, setShowHelpConfig] = useState<boolean>(false);
+
+  const handleRealGoogleLogin = async () => {
+    setErrorMsg("");
+    setLoading(true);
+    try {
+      if (!isSupabaseConfigured) {
+        throw new Error("Supabase não configurado. Por favor, adicione as variáveis no seu .env ou nas Configurações da plataforma.");
+      }
+
+      const authUrl = await signInWithGoogleSupabase();
+      
+      const width = 600;
+      const height = 700;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      
+      const popupWindow = window.open(
+        authUrl,
+        "AisoGoogleAuthPopup",
+        `width=${width},height=${height},top=${top},left=${left},status=no,resizable=yes,scrollbars=yes`
+      );
+
+      if (!popupWindow) {
+        throw new Error("O bloqueador de popups impediu a abertura da janela. Por favor, libere popups para poder autenticar.");
+      }
+    } catch (err: any) {
+      console.error("Erro ao iniciar login Google:", err);
+      setErrorMsg(err.message || "Erro desconhecido ao abrir tela de login.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSelectAccount = (name: string, email: string, photoURL: string = "") => {
     const avatar = photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`;
@@ -123,16 +160,111 @@ export default function WelcomeScreen({ onLogin }: WelcomeScreenProps) {
                 </div>
               </div>
 
-              <div className="border-t border-[#2541B2]/10 pt-6">
+              {/* Real Google OAuth SSO Form */}
+              <div className="border-t border-[#2541B2]/10 pt-6 space-y-4">
+                {errorMsg && (
+                  <div className="p-3 bg-red-50 border border-red-150 rounded-xl text-[10px] text-red-700 leading-relaxed text-left flex gap-2 items-start">
+                    <ShieldAlert size={14} className="shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Aviso de Configuração:</span> {errorMsg}
+                      <button
+                        onClick={() => setShowHelpConfig(true)}
+                        className="block mt-1 font-mono uppercase text-[9px] font-bold text-red-800 hover:underline"
+                      >
+                        Ver passo-a-passo de ativação →
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <button
                   id="google-login-welcome-btn"
-                  onClick={() => setShowAccounts(true)}
-                  className="w-full py-3.5 bg-[#2541B2] hover:bg-[#1E3491] text-white text-xs uppercase tracking-widest font-black rounded-xl duration-300 transition-all shadow-md hover:shadow-lg active:scale-[0.99] flex items-center justify-center gap-2.5 cursor-pointer"
+                  onClick={handleRealGoogleLogin}
+                  disabled={loading}
+                  className="w-full py-3.5 bg-[#2541B2] hover:bg-[#1E3491] disabled:bg-[#2541B2]/50 text-white text-xs uppercase tracking-widest font-black rounded-xl duration-300 transition-all shadow-md hover:shadow-lg active:scale-[0.99] flex items-center justify-center gap-2.5 cursor-pointer"
                 >
-                  <LogIn size={15} />
-                  <span>Entrar com o Google</span>
+                  {loading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent border-white" />
+                  ) : (
+                    <LogIn size={15} />
+                  )}
+                  <span>Entrar de fato com o Google</span>
                 </button>
+
+                <div className="flex flex-col sm:flex-row justify-center items-center gap-2 pt-1">
+                  <button
+                    onClick={() => setShowAccounts(true)}
+                    className="text-[10px] font-mono uppercase tracking-wider text-[#2541B2]/70 hover:text-[#2541B2] hover:underline transition-colors"
+                  >
+                    Usar perfis locais de teste (Offline)
+                  </button>
+                  <span className="text-[#2541B2]/30 hidden sm:inline">•</span>
+                  <button
+                    onClick={() => setShowHelpConfig(!showHelpConfig)}
+                    className="text-[10px] font-mono uppercase tracking-wider text-[#2541B2]/70 hover:text-[#2541B2] hover:underline transition-colors flex items-center gap-1"
+                  >
+                    <BookOpen size={11} />
+                    <span>Guia de Configuração</span>
+                  </button>
+                </div>
               </div>
+
+              {/* Interactive Collapsible Setup Guide */}
+              <AnimatePresence>
+                {showHelpConfig && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden text-left bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-4 text-xs text-slate-705 font-sans"
+                  >
+                    <div className="flex justify-between items-center border-b border-slate-200 pb-1.5">
+                      <span className="font-mono font-bold text-[#2541B2] uppercase tracking-wider text-[10px]">
+                        Guia de Integração Google SSO + Supabase
+                      </span>
+                      <button
+                        onClick={() => setShowHelpConfig(false)}
+                        className="text-[10px] text-slate-400 hover:text-slate-600 font-mono"
+                      >
+                        Fechar
+                      </button>
+                    </div>
+
+                    <p className="font-serif italic text-slate-600 text-[11px] leading-relaxed">
+                      Para que o login com o Google funcione de forma real no seu banco de dados Supabase, conclua estas três simples etapas:
+                    </p>
+
+                    <div className="space-y-3">
+                      <div>
+                        <span className="font-bold text-[#2541B2]">1. Obter Credenciais no Google Cloud Console:</span>
+                        <p className="text-[10px] mt-0.5 leading-relaxed text-slate-650">
+                          Acesse o console do Google Cloud, crie um projeto e vá em <strong>APIs e Serviços &gt; Credenciais</strong>. Crie um <strong>ID do cliente OAuth 2.0</strong> (tipo de aplicativo: Aplicativo da Web).
+                        </p>
+                      </div>
+
+                      <div>
+                        <span className="font-bold text-[#2541B2]">2. Configurar Provedor no Supabase:</span>
+                        <p className="text-[10px] mt-0.5 leading-relaxed text-slate-650">
+                          Abra o painel da Supabase, navegue em <strong>Authentication &gt; Providers &gt; Google</strong>. Ative o Google, cole o <strong>Client ID</strong> e <strong>Client Secret</strong> obtidos na Google Cloud.
+                        </p>
+                      </div>
+
+                      <div>
+                        <span className="font-bold text-[#2541B2]">3. Adicionar URL de Redirecionamento:</span>
+                        <p className="text-[10px] mt-0.5 leading-relaxed text-slate-650">
+                          Copie o <strong>Redirect URI</strong> fornecido pelas configurações do Google do seu painel Supabase (geralmente se parece com <code className="bg-slate-100 px-1 py-0.5 rounded text-[9px] font-mono text-pink-600">https://ehqzukmunlyhjxvcsths.supabase.co/auth/v1/callback</code>) e cole no campo <strong>URIs de redirecionamento autorizados</strong> das credenciais do Google Cloud Console.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-[#2541B2]/5 border border-[#2541B2]/10 p-2.5 rounded-lg text-[9.5px] leading-normal text-[#2541B2]">
+                      <strong>Nota de Desenvolvimento:</strong> Lembre-se de configurar
+                      <code className="bg-white/80 border border-[#2541B2]/15 mx-1 px-1 py-0.5 rounded font-mono text-[8.5px]">VITE_SUPABASE_URL</code> e
+                      <code className="bg-white/80 border border-[#2541B2]/15 px-1 py-0.5 rounded font-mono text-[8.5px]">VITE_SUPABASE_ANON_KEY</code> nas configurações da plataforma ou no .env se for utilizar outro projeto.
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           ) : (
             <div className="space-y-6">

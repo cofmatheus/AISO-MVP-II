@@ -26,6 +26,7 @@ import {
 import { UserProfile, PracticeSession, ErrorLog, ActivityItem } from "../types";
 import { motion, AnimatePresence } from "motion/react";
 import { isKeysConfigured, signInWithGoogle, auth as firebaseAuth } from "../lib/firebase";
+import { supabase, isSupabaseConfigured } from "../lib/supabase";
 
 interface ProfilePageProps {
   onBack: () => void;
@@ -170,10 +171,17 @@ export default function ProfilePage({
     }, 1200);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.auth.signOut();
+      } catch (e) {
+        console.warn("Erro ao fazer logout no Supabase:", e);
+      }
+    }
     if (isKeysConfigured && firebaseAuth) {
       try {
-        firebaseAuth.signOut();
+        await firebaseAuth.signOut();
       } catch (e) {
         console.warn("Erro ao fazer logout no Firebase:", e);
       }
@@ -238,7 +246,12 @@ export default function ProfilePage({
 
         {/* Sync Status Flag */}
         <div className="flex items-center gap-1.5 text-[8.5px] font-mono font-bold uppercase tracking-widest bg-[#2541B2]/5 border border-[#2541B2]/15 px-3 py-1.5 rounded-full select-none">
-          {isKeysConfigured ? (
+          {isSupabaseConfigured ? (
+            <>
+              <Cloud size={11} className="text-emerald-600 animate-pulse" />
+              <span className="text-emerald-700">Supabase Conectado</span>
+            </>
+          ) : isKeysConfigured ? (
             <>
               <Cloud size={11} className="text-emerald-600 animate-pulse" />
               <span className="text-emerald-700">Firebase Conectado</span>

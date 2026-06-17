@@ -68,6 +68,84 @@ Por favor, siga estas diretrizes essenciais ao responder:
     }
   });
 
+  // OAuth Google callback endpoint
+  app.get(["/auth/callback", "/auth/callback/"], (req, res) => {
+    res.setHeader("Content-Type", "text/html");
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Autenticando - AISO</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              background-color: #F7F7FF;
+              color: #2541B2;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              margin: 0;
+            }
+            .card {
+              background: white;
+              padding: 2.5rem;
+              border-radius: 1.5rem;
+              box-shadow: 0 4px 20px rgba(37, 65, 178, 0.08);
+              border: 1px border #2541B2/10;
+              text-align: center;
+              max-width: 400px;
+            }
+            .spinner {
+              border: 3px solid rgba(37, 65, 178, 0.1);
+              width: 36px;
+              height: 36px;
+              border-radius: 50%;
+              border-left-color: #2541B2;
+              animation: spin 1s linear infinite;
+              margin: 0 auto 1.5rem;
+            }
+            h2 {
+              font-family: serif;
+              margin: 0 0 0.5rem 0;
+              letter-spacing: 0.1em;
+              text-transform: uppercase;
+            }
+            p {
+              font-size: 0.85rem;
+              color: rgba(37, 65, 178, 0.7);
+              margin: 0;
+            }
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="spinner"></div>
+            <h2>Sincronizando</h2>
+            <p>Conectando seu perfil de artesão através do Google...</p>
+          </div>
+          <script>
+            // Send back the callback query attributes inside search and hash URLs
+            if (window.opener) {
+              window.opener.postMessage({
+                type: "SUPABASE_AUTH_CALLBACK",
+                search: window.location.search,
+                hash: window.location.hash
+              }, "*");
+              window.close();
+            } else {
+              window.location.href = "/";
+            }
+          </script>
+        </body>
+      </html>
+    `);
+  });
+
   // Vite middleware setup
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

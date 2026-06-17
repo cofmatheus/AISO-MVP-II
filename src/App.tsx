@@ -23,6 +23,7 @@ import {
   saveRemoteSettings, 
   fetchRemoteSettings 
 } from "./lib/firebase";
+import { supabase, isSupabaseConfigured } from "./lib/supabase";
 
 // Local storage key names
 const STORAGE_SESSIONS = "desmame_sessions";
@@ -143,6 +144,91 @@ export default function App() {
     } catch (e) {
       console.warn("Failed to retrieve state parameters from localStorage", e);
     }
+  }, []);
+
+  // Supabase Google SSO Callback message listener and session restoration
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
+    // 1. Attempt to restore active session from Supabase on load
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const u = session.user;
+        const loggedProfile: UserProfile = {
+          uid: u.id,
+          name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "Membro Contemplativo",
+          email: u.email || "",
+          photoURL: u.user_metadata?.avatar_url || u.user_metadata?.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(u.id)}`,
+          isLoggedIn: true
+        };
+        setProfile(loggedProfile);
+        localStorage.setItem("aiso_user_profile", JSON.stringify(loggedProfile));
+      }
+    });
+
+    // 2. Listen for auth changes to sync state seamlessly
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const u = session.user;
+        const loggedProfile: UserProfile = {
+          uid: u.id,
+          name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "Membro Contemplativo",
+          email: u.email || "",
+          photoURL: u.user_metadata?.avatar_url || u.user_metadata?.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(u.id)}`,
+          isLoggedIn: true
+        };
+        setProfile(loggedProfile);
+        localStorage.setItem("aiso_user_profile", JSON.stringify(loggedProfile));
+      } else if (_event === "SIGNED_OUT") {
+        setProfile(defaultUserProfile);
+        localStorage.removeItem("aiso_user_profile");
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // PostMessage popup response listener for Supabase authentication callback exchange
+  useEffect(() => {
+    const handleOAuthMessage = async (event: MessageEvent) => {
+      const origin = event.origin;
+      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+        return;
+      }
+
+      if (event.data?.type === "SUPABASE_AUTH_CALLBACK") {
+        const { search } = event.data;
+        const params = new URLSearchParams(search);
+        const code = params.get("code");
+
+        if (code) {
+          try {
+            const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+            if (error) throw error;
+            
+            if (data?.user) {
+              const u = data.user;
+              const loggedProfile: UserProfile = {
+                uid: u.id,
+                name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "Membro Contemplativo",
+                email: u.email || "",
+                photoURL: u.user_metadata?.avatar_url || u.user_metadata?.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(u.id)}`,
+                isLoggedIn: true
+              };
+              handleSaveProfile(loggedProfile);
+            }
+          } catch (err) {
+            console.error("Falha ao processar código de login com o Google:", err);
+            alert("Não foi possível autenticar o perfil. Por favor, verifique a habilitação do Google no console Supabase.");
+          }
+        }
+      }
+    };
+
+    window.addEventListener("message", handleOAuthMessage);
+    return () => window.removeEventListener("message", handleOAuthMessage);
   }, []);
 
   // Save activities to localStorage when they change
