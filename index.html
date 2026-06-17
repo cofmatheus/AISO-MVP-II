@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Google AI Studio App</title>
+    <script>
+      (function() {
+        var globalsToWrap = ['fetch', 'Headers', 'Request', 'Response'];
+        globalsToWrap.forEach(function(key) {
+          try {
+            if (key in window) {
+              var originalVal = window[key];
+              var currentVal = originalVal;
+              Object.defineProperty(window, key, {
+                configurable: true,
+                enumerable: true,
+                get: function() {
+                  return currentVal;
+                },
+                set: function(v) {
+                  currentVal = v;
+                }
+              });
+              if (typeof globalThis !== 'undefined') {
+                Object.defineProperty(globalThis, key, {
+                  configurable: true,
+                  enumerable: true,
+                  get: function() {
+                    return currentVal;
+                  },
+                  set: function(v) {
+                    currentVal = v;
+                  }
+                });
+              }
+            }
+          } catch (err) {
+            console.warn("Failed to wrap " + key + ":", err);
+          }
+        });
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

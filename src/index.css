@@ -1,0 +1,207 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Space Grotesk", sans-serif; /* Use clean high-tech heading font instead of serif */
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --color-surface: #F7F7FF;
+  --color-surface-dim: #E6E6FA;
+  --color-surface-bright: #F7F7FF;
+  --color-surface-lowest: #FFFFFF;
+  --color-surface-low: #F1F1FD;
+  --color-surface-container: #E8E8FF;
+  --color-surface-high: #DCDCFF;
+  --color-surface-highest: #D0D0FF;
+  
+  --color-on-surface: #2541B2;
+  --color-on-surface-variant: #3B53C4;
+  --color-outline: #2541B2;
+  
+  --color-primary: #2541B2;
+  --color-primary-container: #EBEBFF;
+  --color-on-primary-container: #2541B2;
+  
+  --color-secondary: #3B53C4;
+  --color-secondary-container: #E1E1FF;
+  
+  --color-tertiary: #536CE6;
+  --color-tertiary-dark: #1A2E80;
+  --color-tertiary-container: #EAF0FF;
+  
+  --color-error: #D02525;
+  --color-error-container: #FFE5E5;
+}
+
+/* Custom Effects - AISO Futuristic Minimalist */
+.paper-texture {
+  background-color: #F7F7FF;
+  background-image: 
+    radial-gradient(ellipse at 50% 15%, rgba(37, 65, 178, 0.05) 0%, transparent 65%),
+    radial-gradient(ellipse at bottom, rgba(37, 65, 178, 0.03) 0%, transparent 60%),
+    linear-gradient(rgba(37, 65, 178, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37, 65, 178, 0.015) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 20px 20px, 20px 20px;
+}
+
+.dark .paper-texture {
+  background-color: #0A0A16; /* Clean deep blue-black night mode */
+  background-image: 
+    radial-gradient(ellipse at 50% 15%, rgba(135, 160, 255, 0.1) 0%, transparent 65%),
+    linear-gradient(rgba(135, 160, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(135, 160, 255, 0.02) 1px, transparent 1px);
+  background-size: 100% 100%, 24px 24px, 24px 24px;
+}
+
+/* Dark mode theme variables */
+.dark {
+  --color-surface: #0A0A16;
+  --color-surface-dim: #05050C;
+  --color-surface-bright: #0E0E1F;
+  --color-surface-lowest: #030308;
+  --color-surface-low: #080812;
+  --color-surface-container: #111124;
+  --color-surface-high: #1E1E3A;
+  --color-surface-highest: #2D2D54;
+
+  --color-on-surface: #87A0FF;
+  --color-on-surface-variant: #A4B7FF;
+  --color-outline: #4765D9;
+
+  --color-primary: #87A0FF;
+  --color-primary-container: #111124;
+  --color-on-primary-container: #87A0FF;
+
+  --color-secondary: #A4B7FF;
+  --color-secondary-container: #1E1E3A;
+
+  --color-tertiary: #A4B7FF;
+  --color-tertiary-dark: #87A0FF;
+  --color-tertiary-container: #111124;
+
+  --color-error: #FF6B6B;
+  --color-error-container: #3D0C0C;
+}
+
+/* Auto-switch hardcoded brand blue and light bg elements */
+.dark [class*="text-[#2541B2]"] {
+  color: #87A0FF !important;
+}
+.dark [class*="text-[#2541B2]/10"] { color: rgba(135, 160, 255, 0.1) !important; }
+.dark [class*="text-[#2541B2]/20"] { color: rgba(135, 160, 255, 0.2) !important; }
+.dark [class*="text-[#2541B2]/40"] { color: rgba(135, 160, 255, 0.4) !important; }
+.dark [class*="text-[#2541B2]/50"] { color: rgba(135, 160, 255, 0.5) !important; }
+.dark [class*="text-[#2541B2]/55"] { color: rgba(135, 160, 255, 0.55) !important; }
+.dark [class*="text-[#2541B2]/60"] { color: rgba(135, 160, 255, 0.6) !important; }
+.dark [class*="text-[#2541B2]/70"] { color: rgba(135, 160, 255, 0.7) !important; }
+.dark [class*="text-[#2541B2]/75"] { color: rgba(135, 160, 255, 0.75) !important; }
+.dark [class*="text-[#2541B2]/80"] { color: rgba(135, 160, 255, 0.8) !important; }
+.dark [class*="text-[#2541B2]/85"] { color: rgba(135, 160, 255, 0.85) !important; }
+
+.dark [class*="bg-[#2541B2]"] {
+  background-color: #87A0FF !important;
+  color: #0A0A16 !important;
+}
+.dark [class*="bg-[#2541B2]"] span, .dark [class*="bg-[#2541B2]"] svg {
+  color: #0A0A16 !important;
+}
+.dark [class*="b-[#2541B2]"] {
+  border-color: #87A0FF !important;
+}
+.dark [class*="hover:bg-[#2541B2]"]:hover {
+  background-color: #A4B7FF !important;
+}
+.dark [class*="bg-[#2541B2]/5"] { background-color: rgba(135, 160, 255, 0.05) !important; }
+.dark [class*="bg-[#2541B2]/10"] { background-color: rgba(135, 160, 255, 0.1) !important; }
+.dark [class*="bg-[#2541B2]/15"] { background-color: rgba(135, 160, 255, 0.15) !important; }
+.dark [class*="bg-[#2541B2]/20"] { background-color: rgba(135, 160, 255, 0.2) !important; }
+.dark [class*="bg-[#2541B2]/25"] { background-color: rgba(135, 160, 255, 0.25) !important; }
+.dark [class*="bg-[#2541B2]/90"] { background-color: rgba(10, 10, 22, 0.9) !important; }
+
+.dark [class*="bg-[#FFFFFF]"], .dark [class*="bg-white"] {
+  background-color: #111124 !important;
+  border-color: rgba(135, 160, 255, 0.15) !important;
+}
+.dark [class*="bg-[#FFFFFF]/40"] { background-color: rgba(17, 17, 36, 0.4) !important; }
+.dark [class*="bg-[#FFFFFF]/70"] { background-color: rgba(17, 17, 36, 0.7) !important; }
+.dark [class*="bg-[#FFFFFF]/75"] { background-color: rgba(17, 17, 36, 0.75) !important; }
+.dark [class*="bg-[#FFFFFF]/80"] { background-color: rgba(17, 17, 36, 0.8) !important; }
+.dark [class*="bg-[#FFFFFF]/85"] { background-color: rgba(17, 17, 36, 0.85) !important; }
+.dark [class*="bg-[#FFFFFF]/90"] { background-color: rgba(17, 17, 36, 0.9) !important; }
+
+.dark [class*="border-[#2541B2]"] {
+  border-color: #87A0FF !important;
+}
+.dark [class*="border-[#2541B2]/10"] { border-color: rgba(135, 160, 255, 0.1) !important; }
+.dark [class*="border-[#2541B2]/15"] { border-color: rgba(135, 160, 255, 0.15) !important; }
+.dark [class*="border-[#2541B2]/20"] { border-color: rgba(135, 160, 255, 0.2) !important; }
+.dark [class*="border-[#2541B2]/25"] { border-color: rgba(135, 160, 255, 0.25) !important; }
+.dark [class*="border-[#2541B2]/30"] { border-color: rgba(135, 160, 255, 0.3) !important; }
+.dark [class*="border-[#2541B2]/40"] { border-color: rgba(135, 160, 255, 0.4) !important; }
+
+.dark [class*="fill-[#F7F7FF]"] { fill: #0A0A16 !important; }
+.dark [class*="text-[#F7F7FF]"] { color: #0A0A16 !important; }
+
+/* Custom elements override */
+.dark .hand-drawn-circle {
+  border-color: #87A0FF !important;
+  box-shadow: 0 0 25px rgba(135, 160, 255, 0.08), inset 0 0 15px rgba(135, 160, 255, 0.03) !important;
+  background-color: rgba(17, 17, 36, 0.9) !important;
+}
+.dark .irregular-border {
+  border-color: #87A0FF !important;
+}
+.dark .grain-overlay {
+  opacity: 0.15 !important;
+  background-image: radial-gradient(circle, #87A0FF 0.75px, transparent 0.75px) !important;
+}
+.dark input, .dark textarea, .dark select {
+  color: #ECEEF1 !important;
+}
+.dark input::placeholder, .dark textarea::placeholder {
+  color: rgba(236, 238, 241, 0.35) !important;
+}
+
+.dark .atmospheric-blur {
+  box-shadow: 0 12px 30px -8px rgba(10, 10, 22, 0.8) !important;
+}
+
+.atmospheric-blur {
+  box-shadow: 0 12px 30px -8px rgba(37, 65, 178, 0.06);
+}
+
+.irregular-border {
+  border: 1px solid #2541B2;
+  border-radius: 4px;
+}
+
+.hand-drawn-circle {
+  border: 1.5px solid #2541B2;
+  border-radius: 50%;
+  box-shadow: 0 0 25px rgba(37, 65, 178, 0.06), inset 0 0 15px rgba(37, 65, 178, 0.02);
+  transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.grain-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.12;
+  background-image: radial-gradient(circle, #2541B2 0.75px, transparent 0.75px);
+  background-size: 20px 20px;
+}
+
+/* Base modifications for the layout style */
+html, body {
+  font-family: "Inter", sans-serif;
+  letter-spacing: 0.01em;
+}
+
+input, textarea, select {
+  font-family: inherit;
+}

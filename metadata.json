@@ -1,0 +1,6 @@
+{
+  "name": "AISO",
+  "description": "Uma interface futurista e minimalista para desintoxicação digital e foco analógico.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "id": 1,
+    "quote": "Respire fundo por 4 segundos, segure por 4 e solte devagar. Seu corpo agradece o compasso.",
+    "category": "respiracao"
+  },
+  {
+    "id": 2,
+    "quote": "O tédio criativo é o silêncio necessário para que as ideias maduras encontrem seu espaço de fala.",
+    "category": "contemplacao"
+  },
+  {
+    "id": 3,
+    "quote": "Que tal colocar o telefone em outra sala? O analógico floresce longe das telas luminosas.",
+    "category": "desconexao"
+  },
+  {
+    "id": 4,
+    "quote": "Olhe para o horizonte por 20 segundos. Deixe seus olhos reajustarem o foco ao mundo real.",
+    "category": "olhar"
+  },
+  {
+    "id": 5,
+    "quote": "Beba um copo de água calmamente. Sinta o frescor limpando suas distrações mecanizadas.",
+    "category": "presenca"
+  },
+  {
+    "id": 6,
+    "quote": "No seu ateliê analógico, os erros não são falhas; são as ranhuras que provam a beleza do feito à mão.",
+    "category": "filosofia"
+  },
+  {
+    "id": 7,
+    "quote": "Sua mente não é um processador de dados continuo. Conceda-se 5 minutos de puro nada.",
+    "category": "descanso"
+  },
+  {
+    "id": 8,
+    "quote": "O mestre interior se constrói com repetições lentas, silenciosas e sem pressa.",
+    "category": "foco"
+  },
+  {
+    "id": 9,
+    "quote": "Suavize os ombros. Solte o maxilar. O esforço intelectual não precisa de tensão corporal.",
+    "category": "corpo"
+  },
+  {
+    "id": 10,
+    "quote": "A velocidade do mundo digital é uma ilusão. No ateliê analógico, o tempo é moldável e seu.",
+    "category": "tempo"
+  },
+  {
+    "id": 11,
+    "quote": "Antes de começar o próximo passo, sinta o peso e a textura dos materiais à sua frente.",
+    "category": "presenca"
+  },
+  {
+    "id": 12,
+    "quote": "Desligue as abas extras do navegador que disputam seu olhar contemplativo.",
+    "category": "desconexao"
+  }
+]
