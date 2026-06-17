@@ -446,6 +446,8 @@ export default function App() {
   // Save changes helper functions
   const handleSaveProfile = (newProfile: UserProfile) => {
     setProfile(newProfile);
+    setView("main");
+    setIsLoginLoading(false);
     localStorage.setItem("aiso_user_profile", JSON.stringify(newProfile));
     if (isKeysConfigured && newProfile.isLoggedIn && newProfile.uid) {
       syncUserProfile(newProfile.uid, newProfile);
