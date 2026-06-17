@@ -5,6 +5,7 @@ import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
+dotenv.config({ path: ".env.local" });
 
 async function startServer() {
   const app = express();
@@ -14,6 +15,9 @@ async function startServer() {
 
   // Initialize GoogleGenAI
   const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.warn("GEMINI_API_KEY não configurado. O servidor Gemini ficará indisponível até a chave ser adicionada em .env ou .env.local.");
+  }
   const ai = new GoogleGenAI({
     apiKey: apiKey || "",
     httpOptions: {
@@ -23,8 +27,20 @@ async function startServer() {
     }
   });
 
+  const ensureGeminiKey = (res: express.Response) => {
+    if (!apiKey) {
+      res.status(500).json({
+        error: "GEMINI_API_KEY não configurada. Copie .env.example para .env e defina a variável GEMINI_API_KEY."
+      });
+      return false;
+    }
+    return true;
+  };
+
   // AI Mentor chat proxy route
   app.post("/api/chat", async (req, res) => {
+    if (!ensureGeminiKey(res)) return;
+
     try {
       const { message, history, activity } = req.body;
       
@@ -70,6 +86,8 @@ Por favor, siga estas diretrizes essenciais ao responder:
 
   // Unique route for customized offline arts/mixed-media advise
   app.post("/api/gemini-advice", async (req, res) => {
+    if (!ensureGeminiKey(res)) return;
+
     try {
       const { context } = req.body;
       

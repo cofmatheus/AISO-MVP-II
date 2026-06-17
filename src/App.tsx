@@ -123,6 +123,7 @@ export default function App() {
     return fallback ? [fallback] : [];
   });
 
+  const [openActivitySelectorFromProfile, setOpenActivitySelectorFromProfile] = useState<boolean>(false);
   const [sessions, setSessions] = useState<PracticeSession[]>([]);
   const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
@@ -140,6 +141,15 @@ export default function App() {
       localStorage.setItem(STORAGE_SELECTED_ACTIVITIES, JSON.stringify(next));
       return next;
     });
+  };
+
+  const handleOpenActivitySelectionFromProfile = () => {
+    setView("main");
+    setOpenActivitySelectorFromProfile(true);
+  };
+
+  const handleClearProfileActivitySelectorRequest = () => {
+    setOpenActivitySelectorFromProfile(false);
   };
 
   const [oauthError, setOauthError] = useState<string>("");
@@ -679,6 +689,8 @@ export default function App() {
                   toasts={toasts}
                   toastHistory={toastHistory}
                   onDismissToast={dismissToast}
+                  initialOpenActivitySelector={openActivitySelectorFromProfile}
+                  onInitialActivitySelectorOpened={handleClearProfileActivitySelectorRequest}
                 />
               )}
 
@@ -714,6 +726,7 @@ export default function App() {
               {view === "perfil" && (
                 <ProfilePage
                   onBack={() => setView("main")}
+                  onOpenActivitySelector={handleOpenActivitySelectionFromProfile}
                   profile={profile}
                   onUpdateProfile={handleSaveProfile}
                   sessions={sessions}

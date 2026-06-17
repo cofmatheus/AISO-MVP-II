@@ -15,6 +15,11 @@ View your app in AI Studio: https://ai.studio/apps/4e0668b6-6d20-4495-90c0-405a3
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Copy `.env.example` to `.env` and set the `GEMINI_API_KEY` value
 3. Run the app:
    `npm run dev`
+
+### Gemini API
+- Your server reads `.env` and `.env.local` for `GEMINI_API_KEY`
+- If the key is missing, `/api/chat` and `/api/gemini-advice` will return an error explaining the missing configuration
+- Use the `generateAisoAdvice` helper in `src/lib/gemini.ts` to call `/api/gemini-advice` from the frontend

@@ -60,6 +60,8 @@ interface MainScreenProps {
   toasts: DrAisoToast[];
   toastHistory: DrAisoToast[];
   onDismissToast: (id: string) => void;
+  initialOpenActivitySelector: boolean;
+  onInitialActivitySelectorOpened: () => void;
 }
 
 const ACTIVITY_DETAILS = [
@@ -145,7 +147,11 @@ export default function MainScreen({
   toasts,
   toastHistory,
   onDismissToast,
+  initialOpenActivitySelector,
+  onInitialActivitySelectorOpened,
 }: MainScreenProps) {
+  const [returnToProfileAfterActivitySelection, setReturnToProfileAfterActivitySelection] = useState<boolean>(false);
+
   // Compute today's total minutes of focus
   const today = new Date().toDateString();
   const todaySessions = sessions.filter(
@@ -302,6 +308,15 @@ export default function MainScreen({
 
   // Active news / literature tab for sidebar
   const [activeAsideTab, setActiveAsideTab] = useState<"news" | "artigo" | "notificacoes">("news");
+  
+  React.useEffect(() => {
+    if (initialOpenActivitySelector) {
+      setActiveCategory("all");
+      setIsSwapping(true);
+      setReturnToProfileAfterActivitySelection(true);
+      onInitialActivitySelectorOpened();
+    }
+  }, [initialOpenActivitySelector, onInitialActivitySelectorOpened]);
   const [isOrientadorExpanded, setIsOrientadorExpanded] = useState<boolean>(false);
   const [activeNotification, setActiveNotification] = useState<string | null>(null);
 
@@ -948,6 +963,12 @@ export default function MainScreen({
                           onClick={() => {
                             onSetActiveActivity(act.id);
                             setIsSwapping(false);
+
+                            if (returnToProfileAfterActivitySelection) {
+                              onNavigate("perfil");
+                              setReturnToProfileAfterActivitySelection(false);
+                              return;
+                            }
 
                             try {
                               const src = localStorage.getItem("aiso_activity_selector_source");

@@ -30,6 +30,7 @@ import { supabase, isSupabaseConfigured } from "../lib/supabase";
 
 interface ProfilePageProps {
   onBack: () => void;
+  onOpenActivitySelector: () => void;
   profile: UserProfile;
   onUpdateProfile: (profile: UserProfile) => void;
   sessions: PracticeSession[];
@@ -80,6 +81,7 @@ const renderActivityIcon = (iconName: string) => {
 
 export default function ProfilePage({
   onBack,
+  onOpenActivitySelector,
   profile,
   onUpdateProfile,
   sessions,
@@ -533,8 +535,7 @@ export default function ProfilePage({
                   <div className="mt-3">
                     <button
                       onClick={() => {
-                        try { localStorage.setItem('aiso_activity_selector_source','profile'); } catch(e) {}
-                        onBack();
+                        onOpenActivitySelector();
                       }}
                       className="px-3 py-1 bg-[#2541B2] text-white rounded-lg text-[10px] font-bold"
                     >
