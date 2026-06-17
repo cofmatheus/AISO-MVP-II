@@ -19,6 +19,7 @@ export default function PraticaLivre({ onBack, onSaveSession, settings, activeAc
   const [targetMinutes, setTargetMinutes] = useState<number>(10);
   const [isActive, setIsActive] = useState<boolean>(false);
   const [isFinishing, setIsFinishing] = useState<boolean>(false); // showing reflection form
+  const [showStopConfirm, setShowStopConfirm] = useState<boolean>(false);
 
   // Timer run state
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
@@ -110,11 +111,14 @@ export default function PraticaLivre({ onBack, onSaveSession, settings, activeAc
   };
 
   const handleStopAndDiscard = () => {
-    if (window.confirm("Deseja interromper esta prática de silêncio? O tempo decorrido não será salvo.")) {
-      setIsActive(false);
-      setElapsedSeconds(0);
-      setTimeRemaining(targetMinutes * 60);
-    }
+    setShowStopConfirm(true);
+  };
+
+  const confirmStopAndDiscard = () => {
+    setIsActive(false);
+    setElapsedSeconds(0);
+    setTimeRemaining(targetMinutes * 60);
+    setShowStopConfirm(false);
   };
 
   const handleManualComplete = () => {
@@ -443,6 +447,53 @@ export default function PraticaLivre({ onBack, onSaveSession, settings, activeAc
               <span>Entrar no Silêncio</span>
             </button>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Discard Session Custom Confirmation Overlay */}
+      <AnimatePresence>
+        {showStopConfirm && (
+          <div className="fixed inset-0 z-55 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.6 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowStopConfirm(false)}
+              className="absolute inset-0 bg-on-surface/40 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: "spring", duration: 0.4 }}
+              className="relative w-full max-w-sm bg-surface paper-texture border-1.5 border-outline p-6 rounded-lg atmospheric-blur z-10 text-center space-y-6"
+              id="pratica-stop-confirmation-modal"
+            >
+              <div className="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center mx-auto text-error">
+                <Square size={20} className="fill-current" />
+              </div>
+              <div className="space-y-2">
+                <h4 className="font-serif text-lg text-primary font-bold uppercase tracking-wide">Descartar Prática?</h4>
+                <p className="text-xs text-on-surface/75 font-sans leading-relaxed">
+                  Deseja realmente interromper esta prática de silêncio contemplativo? O tempo decorrido será descartado e não será salvo em seu histórico de sessões.
+                </p>
+              </div>
+              <div className="flex gap-3 justify-center pt-2">
+                <button
+                  onClick={() => setShowStopConfirm(false)}
+                  className="px-4 py-2 border border-outline/35 bg-surface hover:bg-surface-dim/80 text-on-surface text-xs uppercase tracking-widest font-semibold rounded-md duration-200"
+                >
+                  Continuar Prática
+                </button>
+                <button
+                  onClick={confirmStopAndDiscard}
+                  className="px-4 py-2 bg-error hover:bg-error/95 text-white text-xs uppercase tracking-widest font-bold rounded-md duration-200"
+                >
+                  Sim, Descartar
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

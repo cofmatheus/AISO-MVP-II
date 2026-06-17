@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { AppSettings, PracticeSession, ErrorLog, UserProfile } from "./types";
+import { AppSettings, PracticeSession, ErrorLog, UserProfile, ActivityItem } from "./types";
 import MainScreen from "./components/MainScreen";
 import PraticaLivre from "./components/PraticaLivre";
 import ModoSombra from "./components/ModoSombra";
 import DiarioErros from "./components/DiarioErros";
 import Settings from "./components/Settings";
 import Help from "./components/Help";
-import ProfileModal from "./components/ProfileModal";
+import ProfilePage from "./components/ProfilePage";
+import WelcomeScreen from "./components/WelcomeScreen";
 import { useDrAiso } from "./hooks/useDrAiso";
-import { DrAisoToast } from "./hooks/useDrAiso";
 import DrAisoToastContainer from "./components/DrAisoToastContainer";
 import { motion, AnimatePresence } from "motion/react";
-import { Power, Info, Moon, EyeOff } from "lucide-react";
+import { Power, Moon } from "lucide-react";
 import { 
   isKeysConfigured, 
   syncUserProfile, 
@@ -24,11 +24,11 @@ import {
   fetchRemoteSettings 
 } from "./lib/firebase";
 
-
 // Local storage key names
 const STORAGE_SESSIONS = "desmame_sessions";
 const STORAGE_ERROR_LOGS = "desmame_error_logs";
 const STORAGE_SETTINGS = "desmame_settings";
+const STORAGE_ACTIVITIES = "aiso_activities";
 
 const defaultSettings: AppSettings = {
   dailyGoalMinutes: 30,
@@ -46,17 +46,45 @@ const defaultUserProfile: UserProfile = {
   isLoggedIn: false
 };
 
+const DEFAULT_ACTIVITIES: ActivityItem[] = [
+  { id: "entalho em madeira", label: "Entalho em Madeira", desc: "Escultura tátil & precisão manual", iconName: "Hammer", category: "manual" },
+  { id: "leitura analógica", label: "Leitura Analógica", desc: "Absorção de livros físicos em silêncio", iconName: "BookOpen", category: "intelecto" },
+  { id: "caligrafia clássica", label: "Caligrafia Clássica", desc: "Foco no traço harmônico e tinta", iconName: "Feather", category: "manual" },
+  { id: "desenho técnico", label: "Desenho Técnico", desc: "Geometria descritiva & lápis preciso", iconName: "Compass", category: "intelecto" },
+  { id: "jardinagem minuciosa", label: "Jardinagem Minuciosa", desc: "Poda de bonsais e transplantes", iconName: "Sprout", category: "corpo" },
+  { id: "costura de precisão", label: "Costura de Precisão", desc: "Ponto-cruz e costuras em feltro ou couro", iconName: "Scissors", category: "manual" },
+  { id: "miniaturas & maquetes", label: "Miniaturas & Maquetes", desc: "Modelismo físico e montagens minuciosas", iconName: "Layers", category: "manual" },
+  { id: "meditação profunda", label: "Meditação Profunda", desc: "Treino de presença & ritmo de respiração", iconName: "Wind", category: "corpo" },
+  { id: "manutenção mecânica", label: "Manutenção Mecânica", desc: "Ajuste fino de engrenagens e calibração", iconName: "Wrench", category: "corpo" },
+  { id: "escrita criativa", label: "Escrita Criativa", desc: "Roteiros, poemas e prosa manual em papel", iconName: "Edit3", category: "intelecto" }
+];
+
+const getBaseMasteryHours = (id: string): number => {
+  switch (id) {
+    case "entalho em madeira": return 40;
+    case "leitura analógica": return 25;
+    case "caligrafia clássica": return 30;
+    case "desenho técnico": return 35;
+    case "jardinagem minuciosa": return 20;
+    case "costura de precisão": return 20;
+    case "miniaturas & maquetes": return 30;
+    case "meditação profunda": return 15;
+    case "manutenção mecânica": return 25;
+    case "escrita criativa": return 30;
+    default: return 20;
+  }
+};
+
 export default function App() {
   // Dr. Aiso periodic automated triggers
   const { toasts, dismissToast } = useDrAiso();
 
   // Application view route
-  const [view, setView] = useState<"main" | "pratica_livre" | "modo_sombra" | "diario_erros">("main");
+  const [view, setView] = useState<"main" | "pratica_livre" | "modo_sombra" | "diario_erros" | "perfil">("main");
 
   // Global overlay modal toggles
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
-  const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
 
   // Deep hibernation shade (Desligar) State
   const [isShutDown, setIsShutDown] = useState<boolean>(false);
@@ -72,7 +100,17 @@ export default function App() {
     return defaultUserProfile;
   });
 
-  // States initialized from local storage
+  // Dynamic user activities list state
+  const [activities, setActivities] = useState<ActivityItem[]>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_ACTIVITIES);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (_) {}
+    return DEFAULT_ACTIVITIES;
+  });
+
   const [sessions, setSessions] = useState<PracticeSession[]>([]);
   const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
@@ -80,40 +118,9 @@ export default function App() {
     return localStorage.getItem("aiso_active_activity") || "entalho em madeira";
   });
 
-  const [activityProgresses, setActivityProgresses] = useState<Record<string, number>>(() => {
-    try {
-      const stored = localStorage.getItem("aiso_activity_progresses");
-      if (stored) {
-        return JSON.parse(stored);
-      }
-    } catch (_) {}
-    return {
-      "entalho em madeira": 24,
-      "leitura analógica": 45,
-      "caligrafia clássica": 12,
-      "desenho técnico": 30,
-      "jardinagem minuciosa": 5,
-      "costura de precisão": 18,
-      "miniaturas & maquetes": 35,
-      "meditação profunda": 60,
-      "manutenção mecânica": 8,
-      "escrita criativa": 50
-    };
-  });
-
   const handleSetActiveActivity = (act: string) => {
     setActiveActivity(act);
     localStorage.setItem("aiso_active_activity", act);
-  };
-
-  const handleUpdateProgress = (activity: string, increment: number) => {
-    setActivityProgresses((prev) => {
-      const current = prev[activity] !== undefined ? prev[activity] : 10;
-      const nextProgress = Math.min(100, Math.max(0, current + increment));
-      const updated = { ...prev, [activity]: nextProgress };
-      localStorage.setItem("aiso_activity_progresses", JSON.stringify(updated));
-      return updated;
-    });
   };
 
   // Load from localStorage on initialization
@@ -138,28 +145,48 @@ export default function App() {
     }
   }, []);
 
+  // Save activities to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem(STORAGE_ACTIVITIES, JSON.stringify(activities));
+  }, [activities]);
+
+  const handleAddActivity = (newAct: ActivityItem) => {
+    setActivities((prev) => {
+      // Avoid duplication
+      if (prev.some((a) => a.id === newAct.id)) return prev;
+      return [...prev, newAct];
+    });
+  };
+
+  const handleDeleteActivity = (id: string) => {
+    setActivities((prev) => {
+      const filtered = prev.filter((a) => a.id !== id);
+      // If we deleted the currently active activity, switch activeActivity to the first remaining activity
+      if (activeActivity === id && filtered.length > 0) {
+        handleSetActiveActivity(filtered[0].id);
+      }
+      return filtered;
+    });
+  };
+
   // Sincronizador de dados com o Firestore de forma dinâmica
   useEffect(() => {
     if (!isKeysConfigured || !profile.isLoggedIn || !profile.uid) return;
 
     const pullRemoteAndUpdateCleanly = async () => {
       try {
-        // 1. Sincroniza o usuário atual
         await syncUserProfile(profile.uid, profile);
 
-        // 2. Busca sessões remotas e mescla
         const remoteSessions = await fetchRemoteSessions(profile.uid);
         if (remoteSessions && remoteSessions.length > 0) {
           setSessions(remoteSessions as PracticeSession[]);
           localStorage.setItem(STORAGE_SESSIONS, JSON.stringify(remoteSessions));
         } else if (sessions.length > 0) {
-          // Se na nuvem estiver vazio, puxa os locais para lá
           for (const sess of sessions) {
             await saveRemoteSession(profile.uid, sess);
           }
         }
 
-        // 3. Busca logs de erro e mescla
         const remoteLogs = await fetchRemoteErrorLogs(profile.uid);
         if (remoteLogs && remoteLogs.length > 0) {
           setErrorLogs(remoteLogs as ErrorLog[]);
@@ -170,7 +197,6 @@ export default function App() {
           }
         }
 
-        // 4. Busca configurações remotas
         const remoteSettings = await fetchRemoteSettings(profile.uid);
         if (remoteSettings) {
           setSettings((prev) => {
@@ -247,16 +273,39 @@ export default function App() {
     setErrorLogs([]);
     setSettings(defaultSettings);
     setProfile(defaultUserProfile);
+    setActivities(DEFAULT_ACTIVITIES);
     localStorage.removeItem(STORAGE_SESSIONS);
     localStorage.removeItem(STORAGE_ERROR_LOGS);
     localStorage.removeItem(STORAGE_SETTINGS);
+    localStorage.removeItem(STORAGE_ACTIVITIES);
     localStorage.removeItem("aiso_user_profile");
+    localStorage.removeItem("aiso_active_activity");
     setIsSettingsOpen(false);
     setView("main");
   };
 
+  // If user is not authenticated with Google, show the stunning initial login screen!
+  if (!profile.isLoggedIn) {
+    return (
+      <div className="relative min-h-screen bg-surface text-on-surface paper-texture select-none transition-colors duration-500 overflow-x-hidden">
+        {settings.enablePaperGrain && <div className="grain-overlay" />}
+        <WelcomeScreen onLogin={handleSaveProfile} />
+      </div>
+    );
+  }
+
+  // Calculate current active activity parameters for ModoSombra
+  const activeSessions = sessions.filter(
+    s => s.completed && (s.activityId === activeActivity || s.notes.toLowerCase().includes(activeActivity.toLowerCase()))
+  );
+  const practicedSeconds = activeSessions.reduce((sum, s) => sum + s.durationSeconds, 0);
+  const practicedHours = practicedSeconds / 3600;
+  const baseMastery = getBaseMasteryHours(activeActivity);
+  const masteryTarget = baseMastery + (activeSessions.length * 1.5);
+  const currentProgressPercent = Math.min(100, Math.round((practicedHours / masteryTarget) * 100));
+
   return (
-    <div className="relative min-h-screen bg-surface text-on-surface paper-texture select-none transition-colors duration-500 overflow-x-hidden">
+    <div className="relative min-h-screen bg-surface text-on-surface paper-texture select-none transition-colors duration-500 overflow-x-hidden animate-fade-in">
       {/* Paper grain visual noise overlay */}
       {settings.enablePaperGrain && <div className="grain-overlay" />}
 
@@ -284,7 +333,7 @@ export default function App() {
                     opacity: [0.2, 0.6, 0.2]
                   }}
                   transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-                  className="w-16 h-16 border-2 border-primary/20 rounded-full flex items-center justify-center p-2"
+                  className="w-16 h-16 border-2 border-[#7ab2d3]/20 rounded-full flex items-center justify-center p-2"
                 >
                   <Moon className="text-[#7ab2d3] fill-[#7ab2d3]/10" size={24} />
                 </motion.div>
@@ -306,7 +355,6 @@ export default function App() {
                   onClick={() => setIsShutDown(false)}
                   className="px-8 py-3 border border-[#7ab2d3]/25 hover:bg-[#7ab2d3]/10 text-[#7ab2d3] text-xs uppercase tracking-widest rounded-md duration-500 transition-colors flex items-center gap-2 cursor-pointer"
                 >
-                  <Power size={14} />
                   <span>Ativar AISO</span>
                 </button>
               </div>
@@ -331,11 +379,11 @@ export default function App() {
                   errorLogs={errorLogs}
                   activeActivity={activeActivity}
                   onSetActiveActivity={handleSetActiveActivity}
-                  activityProgresses={activityProgresses}
-                  onUpdateProgress={handleUpdateProgress}
                   settings={settings}
                   profile={profile}
-                  onOpenProfile={() => setIsProfileOpen(true)}
+                  activities={activities}
+                  onAddActivity={handleAddActivity}
+                  onDeleteActivity={handleDeleteActivity}
                 />
               )}
 
@@ -351,20 +399,11 @@ export default function App() {
               {view === "modo_sombra" && (
                 <ModoSombra
                   onBack={() => setView("main")}
-                  onSaveSession={(s) => {
-                    handleSaveSession(s);
-                    // Automatically reward some progress upon successful focus session completion!
-                    if (s.completed) {
-                      handleUpdateProgress(activeActivity, 10);
-                    } else {
-                      handleUpdateProgress(activeActivity, 2); // subtle partial progress
-                    }
-                  }}
+                  onSaveSession={handleSaveSession}
                   onLoggedDistraction={handleAddErrorLog}
                   settings={settings}
                   activeActivity={activeActivity}
-                  activityProgress={activityProgresses[activeActivity] !== undefined ? activityProgresses[activeActivity] : 10}
-                  onUpdateProgress={handleUpdateProgress}
+                  activityProgress={currentProgressPercent}
                 />
               )}
 
@@ -374,6 +413,17 @@ export default function App() {
                   errorLogs={errorLogs}
                   onAddErrorLog={handleAddErrorLog}
                   onDeleteLog={handleDeleteErrorLog}
+                />
+              )}
+
+              {view === "perfil" && (
+                <ProfilePage
+                  onBack={() => setView("main")}
+                  profile={profile}
+                  onUpdateProfile={handleSaveProfile}
+                  sessions={sessions}
+                  errorLogs={errorLogs}
+                  activities={activities}
                 />
               )}
             </motion.div>
@@ -393,15 +443,6 @@ export default function App() {
       />
 
       <Help isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
-
-      <ProfileModal
-        isOpen={isProfileOpen}
-        onClose={() => setIsProfileOpen(false)}
-        profile={profile}
-        onUpdateProfile={handleSaveProfile}
-        sessions={sessions}
-        errorLogs={errorLogs}
-      />
 
       {/* Global random on-screen notifications from Dr. Aiso */}
       <DrAisoToastContainer toasts={toasts} onDismiss={dismissToast} />

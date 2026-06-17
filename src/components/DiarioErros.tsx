@@ -26,6 +26,9 @@ export default function DiarioErros({
 
   // Filter state
   const [activeFilter, setActiveFilter] = useState<string>("Todos");
+  
+  // Inline deletion verification ID
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const categories = [
     "Notificações / Chats",
@@ -330,19 +333,36 @@ export default function DiarioErros({
                       </p>
                     </div>
 
-                    {/* Delete action */}
-                    <button
-                      id={`delete-log-btn-${log.id}`}
-                      onClick={() => {
-                        if (window.confirm("Deseja apagar este registro do diário?")) {
-                          onDeleteLog(log.id);
-                        }
-                      }}
-                      className="text-outline/40 hover:text-error p-1.5 rounded-md duration-300 transition-colors shrink-0 hover:bg-error/5 self-end sm:self-start"
-                      title="Excluir desvio"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                     {/* Inline Delete confirmation */}
+                     {deletingId === log.id ? (
+                       <div className="flex items-center gap-1.5 self-end sm:self-start bg-error/10 px-2 py-1 rounded border border-error/20" id={`delete-confirm-box-${log.id}`}>
+                         <span className="text-[10px] text-error font-semibold uppercase tracking-wider">Confirmar?</span>
+                         <button
+                           onClick={() => {
+                             onDeleteLog(log.id);
+                             setDeletingId(null);
+                           }}
+                           className="text-[10px] bg-error text-white font-bold px-1.5 py-0.5 rounded uppercase hover:bg-error/90 duration-200"
+                         >
+                           Sim
+                         </button>
+                         <button
+                           onClick={() => setDeletingId(null)}
+                           className="text-[10px] bg-surface-dim text-on-surface font-semibold px-1.5 py-0.5 rounded border border-outline/30 uppercase hover:bg-surface-container duration-200"
+                         >
+                           Não
+                         </button>
+                       </div>
+                     ) : (
+                       <button
+                         id={`delete-log-btn-${log.id}`}
+                         onClick={() => setDeletingId(log.id)}
+                         className="text-outline/40 hover:text-error p-1.5 rounded-md duration-300 transition-colors shrink-0 hover:bg-error/5 self-end sm:self-start"
+                         title="Excluir desvio"
+                       >
+                         <Trash2 size={14} />
+                       </button>
+                     )}
                   </motion.div>
                 ))
               )}

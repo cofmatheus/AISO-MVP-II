@@ -1,5 +1,5 @@
-import React from "react";
-import { X, RefreshCw, Trash2, ShieldAlert, Award, Activity } from "lucide-react";
+import React, { useState } from "react";
+import { X, RefreshCw, Trash2, ShieldAlert, Award, Activity, AlertTriangle, CheckCircle } from "lucide-react";
 import { AppSettings, PracticeSession, ErrorLog } from "../types";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -22,6 +22,8 @@ export default function Settings({
   errorLogs,
   onClearAllData,
 }: SettingsProps) {
+  const [showConfirmReset, setShowConfirmReset] = useState<boolean>(false);
+  const [resetCompleted, setResetCompleted] = useState<boolean>(false);
   // Statistics Computations
   const totalCompletedSessions = sessions.filter((s) => s.completed).length;
   const totalSilenceSeconds = sessions
@@ -67,14 +69,16 @@ export default function Settings({
   };
 
   const clearDataWithConfirmation = () => {
-    if (
-      window.confirm(
-        "Tem certeza que deseja apagar todos os registros de silêncio e diário de erros? Esta ação é permanente."
-      )
-    ) {
-      onClearAllData();
-      alert("Todos os dados foram resetados.");
-    }
+    setShowConfirmReset(true);
+  };
+
+  const handleConfirmReset = () => {
+    onClearAllData();
+    setResetCompleted(true);
+    setTimeout(() => {
+      setResetCompleted(false);
+      setShowConfirmReset(false);
+    }, 2000);
   };
 
   return (
@@ -218,6 +222,57 @@ export default function Settings({
                 </button>
               </div>
             </div>
+
+            {/* Custom state confirmation card */}
+            <AnimatePresence>
+              {showConfirmReset && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="absolute inset-x-0 inset-y-0 bg-surface/98 p-8 flex flex-col justify-center items-center text-center z-20 rounded-lg paper-texture border-1.5 border-outline"
+                  id="settings-reset-confirmation-v"
+                >
+                  {resetCompleted ? (
+                    <motion.div 
+                      initial={{ scale: 0.7, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="space-y-3"
+                    >
+                      <CheckCircle size={44} className="text-emerald-500 mx-auto" />
+                      <h4 className="font-serif text-xl text-[#2541B2] font-semibold">Tudo Redefinido</h4>
+                      <p className="text-xs text-on-surface/75 max-w-xs font-serif italic mx-auto">
+                        Os registros analógicos, sessões e diários foram removidos. Seu ateliê está limpo e renovado.
+                      </p>
+                    </motion.div>
+                  ) : (
+                    <div className="space-y-5">
+                      <AlertTriangle size={44} className="text-error mx-auto animate-bounce" />
+                      <div className="space-y-2">
+                        <h4 className="font-serif text-xl text-error font-semibold uppercase tracking-wide">Apagar Histórico?</h4>
+                        <p className="text-xs text-on-surface/70 max-w-sm font-sans leading-relaxed mx-auto">
+                          Tem certeza de que deseja apagar todos os registros de silêncio e seu diário de desvios? Esta ação é permanente e removerá também na nuvem.
+                        </p>
+                      </div>
+                      <div className="flex gap-3 justify-center">
+                        <button
+                          onClick={() => setShowConfirmReset(false)}
+                          className="px-4 py-2 border border-outline/30 bg-surface hover:bg-surface-dim/80 text-on-surface text-xs uppercase tracking-widest font-semibold rounded-md duration-200"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={handleConfirmReset}
+                          className="px-4 py-2 bg-error hover:bg-error/90 text-white text-xs uppercase tracking-widest font-bold rounded-md duration-200"
+                        >
+                          Confirmar Exclusão
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         </div>
       )}

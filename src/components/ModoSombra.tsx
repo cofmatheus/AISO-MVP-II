@@ -11,7 +11,6 @@ interface ModoSombraProps {
   settings: AppSettings;
   activeActivity: string;
   activityProgress: number;
-  onUpdateProgress: (activity: string, increment: number) => void;
 }
 
 // Full offline highly polished AI Companion tips database
@@ -95,7 +94,6 @@ export default function ModoSombra({
   settings,
   activeActivity,
   activityProgress,
-  onUpdateProgress,
 }: ModoSombraProps) {
   // Config state
   const [targetMinutes, setTargetMinutes] = useState<number>(25);
@@ -112,6 +110,10 @@ export default function ModoSombra({
   const [distractionCategory, setDistractionCategory] = useState<string>("Compulsão Física");
   const [distractionNotes, setDistractionNotes] = useState<string>("");
   const [distractionIntensity, setDistractionIntensity] = useState<number>(3);
+
+  // Custom dialogue flags instead of window alerts and confirms
+  const [showNoReportConfirm, setShowNoReportConfirm] = useState<boolean>(false);
+  const [showSaveSuccessAlert, setShowSaveSuccessAlert] = useState<boolean>(false);
 
   // Running state countdown
   const [secondsRemaining, setSecondsRemaining] = useState<number>(1500); // 25 mins
@@ -231,11 +233,14 @@ export default function ModoSombra({
   };
 
   const handleDiscardNoReport = () => {
-    if(window.confirm("Deseja voltar sem registrar o desvio em seu diário? É altamente recomendável documentar seus impulsos para desenvolver resiliência.")) {
-      setIsReportingDistraction(false);
-      setSecondsRemaining(targetMinutes * 60);
-      onBack();
-    }
+    setShowNoReportConfirm(true);
+  };
+
+  const confirmDiscardNoReport = () => {
+    setIsReportingDistraction(false);
+    setSecondsRemaining(targetMinutes * 60);
+    setShowNoReportConfirm(false);
+    onBack();
   };
 
   const handleSaveDistraction = (e: React.FormEvent) => {
@@ -266,11 +271,14 @@ export default function ModoSombra({
       onSaveSession(partialSession);
     }
 
-    // Reset states
-    alert("Desvio documentado no Diário de Erros.");
-    setDistractionNotes("");
-    setIsReportingDistraction(false);
-    onBack();
+    // Reset states elegantly with delayed transition
+    setShowSaveSuccessAlert(true);
+    setTimeout(() => {
+      setDistractionNotes("");
+      setIsReportingDistraction(false);
+      setShowSaveSuccessAlert(false);
+      onBack();
+    }, 2000);
   };
 
   // Format stopwatch/clock durations
@@ -380,15 +388,12 @@ export default function ModoSombra({
                   />
                 </div>
 
-                {/* Manual incremental button inside shadow mode so users can dynamically interact */}
+                {/* Dynamic label inside shadow mode */}
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-[9px] text-slate-500 font-mono italic">Duolingo Analógico AISO</span>
-                  <button
-                    onClick={() => onUpdateProgress(activeActivity, 5)}
-                    className="px-2 py-0.5 border border-cyan-500/20 hover:border-cyan-500/60 bg-cyan-950/10 rounded text-[8px] font-mono uppercase tracking-wider text-cyan-400 cursor-pointer active:scale-95 transition-all"
-                  >
-                    +5% Progresso
-                  </button>
+                  <span className="text-[8px] font-mono uppercase tracking-wider text-cyan-400">
+                    Sessão Ativa
+                  </span>
                 </div>
               </div>
 
@@ -581,7 +586,7 @@ export default function ModoSombra({
               </p>
               <div className="pt-2">
                 <div className="text-[11px] text-[#2541B2] font-mono uppercase bg-[#2541B2]/15 rounded py-1 px-3 inline-block">
-                  🎖️ Nível de Especialidade Subiu (+10% Progresso)!
+                  🎖️ Sessão de Sombra Conduzida com Sucesso!
                 </div>
               </div>
             </div>
@@ -592,9 +597,9 @@ export default function ModoSombra({
                 setIsCompleted(false);
                 onBack();
               }}
-              className="px-8 py-3 bg-[#2541B2] text-[#F7F7FF] hover:bg-[#1E3491] text-xs font-semibold uppercase tracking-widest rounded-lg transition-all active:scale-98 cursor-pointer"
+              className="px-8 py-3 bg-[#2541B2] text-[#F7F7FF] hover:bg-[#1E3491] text-xs font-semibold uppercase tracking-widest rounded-lg transition-all active:scale-98 cursor-pointer shadow-md"
             >
-              Reabrir Currículo
+              Voltar ao Ateliê
             </button>
           </motion.div>
         ) : (
@@ -609,9 +614,9 @@ export default function ModoSombra({
             <div className="text-center space-y-2">
               <button 
                 onClick={onBack}
-                className="inline-flex items-center gap-1 text-[10px] uppercase font-mono tracking-widest text-[#2541B2]/60 hover:text-[#2541B2] mb-2 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2541B2]/10 hover:bg-[#2541B2]/20 border border-[#2541B2]/20 hover:border-[#2541B2]/45 rounded-xl text-[10.5px] uppercase font-mono tracking-widest text-[#2541B2] font-bold mb-2 cursor-pointer duration-200 shadow-sm"
               >
-                ← Voltar para o Currículo
+                ← Voltar ao Ateliê
               </button>
               <h2 className="font-serif text-3xl text-[#2541B2] tracking-wide uppercase font-bold">Modo Sombra</h2>
               <div className="inline-block px-3 py-1 bg-[#2541B2]/10 border border-[#2541B2]/20 rounded-full text-xs font-mono font-medium lowercase">
@@ -673,6 +678,84 @@ export default function ModoSombra({
               <span>Iniciar Sombra Imersiva</span>
             </button>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Save Distraction Success Alert Modal */}
+      <AnimatePresence>
+        {showSaveSuccessAlert && (
+          <div className="fixed inset-0 z-55 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-[#070b10]/60 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-sm bg-white border border-slate-200 p-6 rounded-xl shadow-xl z-10 text-center space-y-4"
+              id="sombra-save-success-panel"
+            >
+              <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
+                <Sparkles size={20} className="animate-spin duration-1000" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-serif text-lg text-slate-800 font-bold">Desvio Registrado</h4>
+                <p className="text-xs text-slate-600 font-sans leading-relaxed">
+                  Seu impulso de distração foi documentado com sucesso no Diário de Erros. Voltar ao ateliê para reorganizar seu silêncio.
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Discard Early exit without report Confirmation */}
+      <AnimatePresence>
+        {showNoReportConfirm && (
+          <div className="fixed inset-0 z-55 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowNoReportConfirm(false)}
+              className="absolute inset-0 bg-[#070b10]/60 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: "spring", duration: 0.4 }}
+              className="relative w-full max-w-sm bg-white border border-slate-200 p-6 rounded-xl shadow-xl z-10 text-center space-y-5"
+              id="sombra-discard-confirmation-modal"
+            >
+              <div className="w-11 h-11 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+                <HeartCrack size={18} />
+              </div>
+              <div className="space-y-1.5">
+                <h4 className="font-serif text-lg text-slate-800 font-bold uppercase tracking-wide">Ignorar Registro?</h4>
+                <p className="text-xs text-slate-600 font-sans leading-relaxed">
+                  Deseja sair sem registrar o desvio em seu diário? Documentar seus impulsos ajuda a identificar gatilhos mentais e aprimorar sua resiliência a longo prazo.
+                </p>
+              </div>
+              <div className="flex gap-2 justify-center pt-1">
+                <button
+                  onClick={() => setShowNoReportConfirm(false)}
+                  className="px-4 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg duration-200 cursor-pointer"
+                >
+                  Documentar Desvio
+                </button>
+                <button
+                  onClick={confirmDiscardNoReport}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg duration-200 cursor-pointer"
+                >
+                  Sair sem Gravar
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

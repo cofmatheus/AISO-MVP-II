@@ -5,6 +5,7 @@ export interface PracticeSession {
   notes: string;
   type: 'livre' | 'sombra';
   completed: boolean;
+  activityId?: string;
 }
 
 export interface ErrorLog {
@@ -30,3 +31,12 @@ export interface UserProfile {
   photoURL: string;
   isLoggedIn: boolean;
 }
+
+export interface ActivityItem {
+  id: string;
+  label: string;
+  desc: string;
+  iconName: string;
+  category: 'manual' | 'intelecto' | 'corpo';
+}
+

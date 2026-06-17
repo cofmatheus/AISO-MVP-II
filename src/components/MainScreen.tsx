@@ -38,8 +38,10 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { GAZETA_BY_ACTIVITY } from "../data/gazetaData";
 
+import { ActivityItem } from "../types";
+
 interface MainScreenProps {
-  onNavigate: (view: "main" | "pratica_livre" | "modo_sombra" | "diario_erros") => void;
+  onNavigate: (view: "main" | "pratica_livre" | "modo_sombra" | "diario_erros" | "perfil") => void;
   onOpenSettings: () => void;
   onOpenHelp: () => void;
   onTriggerShutdown: () => void;
@@ -47,11 +49,11 @@ interface MainScreenProps {
   errorLogs: ErrorLog[];
   activeActivity: string;
   onSetActiveActivity: (act: string) => void;
-  activityProgresses: Record<string, number>;
-  onUpdateProgress: (activity: string, increment: number) => void;
   settings: AppSettings;
   profile: UserProfile;
-  onOpenProfile: () => void;
+  activities: ActivityItem[];
+  onAddActivity: (act: ActivityItem) => void;
+  onDeleteActivity: (id: string) => void;
 }
 
 const ACTIVITY_DETAILS = [
@@ -129,11 +131,11 @@ export default function MainScreen({
   errorLogs,
   activeActivity,
   onSetActiveActivity,
-  activityProgresses,
-  onUpdateProgress,
   settings,
   profile,
-  onOpenProfile,
+  activities,
+  onAddActivity,
+  onDeleteActivity,
 }: MainScreenProps) {
   // Compute today's total minutes of focus
   const today = new Date().toDateString();
@@ -254,6 +256,9 @@ export default function MainScreen({
   // Custom activity entry state
   const [isAddingCustom, setIsAddingCustom] = useState<boolean>(false);
   const [customNameInput, setCustomNameInput] = useState<string>("");
+  const [customDescInput, setCustomDescInput] = useState<string>("");
+  const [customCategoryInput, setCustomCategoryInput] = useState<"manual" | "intelecto" | "corpo">("manual");
+  const [customIconInput, setCustomIconInput] = useState<string>("Hammer");
 
   // AISO AI Tip Simulator States
   const [currentTip, setCurrentTip] = useState<string>("");
@@ -287,8 +292,8 @@ export default function MainScreen({
 
     let timer: number;
     const scheduleNextNotification = () => {
-      // Choose random delay between 12 and 24 seconds for realistic demonstration inside preview
-      const delay = Math.floor(Math.random() * (24000 - 12000 + 1)) + 12000;
+      // Pick random delay between 120 seconds (2m) and 300 seconds (5m) for peaceful contemplation
+      const delay = Math.floor(Math.random() * (300000 - 120000 + 1)) + 120000;
       
       timer = window.setTimeout(() => {
         const randomIndex = Math.floor(Math.random() * DR_AISO_RANDOM_SPEECHES.length);
@@ -297,12 +302,12 @@ export default function MainScreen({
       }, delay);
     };
 
-    // First trigger after 15 seconds
+    // First trigger after 150 seconds (2.5m)
     const firstTimeout = window.setTimeout(() => {
       const randomIndex = Math.floor(Math.random() * DR_AISO_RANDOM_SPEECHES.length);
       setActiveNotification(DR_AISO_RANDOM_SPEECHES[randomIndex]);
       scheduleNextNotification();
-    }, 15000);
+    }, 150000);
 
     return () => {
       window.clearTimeout(firstTimeout);
@@ -483,13 +488,29 @@ export default function MainScreen({
     { id: "corpo", label: "Presença" }
   ];
 
+  const getBaseMasteryHours = (id: string): number => {
+    switch (id) {
+      case "entalho em madeira": return 40;
+      case "leitura analógica": return 25;
+      case "caligrafia clássica": return 30;
+      case "desenho técnico": return 35;
+      case "jardinagem minuciosa": return 20;
+      case "costura de precisão": return 20;
+      case "miniaturas & maquetes": return 30;
+      case "meditação profunda": return 15;
+      case "manutenção mecânica": return 25;
+      case "escrita criativa": return 30;
+      default: return 20;
+    }
+  };
+
   // List of filtered predefined activities
   const filteredActivities = activeCategory === "all" 
-    ? ACTIVITY_DETAILS 
-    : ACTIVITY_DETAILS.filter(act => act.category === activeCategory);
+    ? activities 
+    : activities.filter(act => act.category === activeCategory);
 
   // Check if activeActivity is active
-  const currentActivityDetail = ACTIVITY_DETAILS.find(act => act.id === activeActivity) || {
+  const currentActivityDetail = activities.find(act => act.id === activeActivity) || {
     id: activeActivity,
     label: activeActivity.charAt(0).toUpperCase() + activeActivity.slice(1),
     desc: "Programa de aprendizado personalizado",
@@ -508,12 +529,24 @@ export default function MainScreen({
   const handleAddCustomActivity = (e: React.FormEvent) => {
     e.preventDefault();
     if (customNameInput.trim()) {
-      const sanitized = customNameInput.trim().toLowerCase();
-      onSetActiveActivity(sanitized);
-      if (activityProgresses[sanitized] === undefined) {
-        onUpdateProgress(sanitized, 0); // Initialize
-      }
+      const sanitizedName = customNameInput.trim();
+      const sanitizedId = sanitizedName.toLowerCase();
+      
+      const newAct: ActivityItem = {
+        id: sanitizedId,
+        label: sanitizedName,
+        desc: customDescInput.trim() || `Sua prática focada de ${sanitizedName}`,
+        iconName: customIconInput,
+        category: customCategoryInput
+      };
+      
+      onAddActivity(newAct);
+      onSetActiveActivity(newAct.id);
+      
       setCustomNameInput("");
+      setCustomDescInput("");
+      setCustomCategoryInput("manual");
+      setCustomIconInput("Hammer");
       setIsAddingCustom(false);
       setIsSwapping(false);
     }
@@ -538,8 +571,8 @@ export default function MainScreen({
             <h1 className="font-serif text-2xl md:text-3xl tracking-[0.18em] text-[#2541B2] font-semibold uppercase select-none leading-none">
               AISO
             </h1>
-            <span className="text-[7.5px] font-mono uppercase tracking-[0.12em] text-[#2541B2]/50 mt-1 select-none font-bold">
-              Ateliê Analógico
+            <span className="text-[12px] font-serif tracking-[0.3em] text-[#2541B2]/95 mt-1 select-none font-black block leading-none">
+              愛想
             </span>
           </div>
         </div>
@@ -556,7 +589,7 @@ export default function MainScreen({
           {/* Perfil Button */}
           <button
             id="open-profile-btn"
-            onClick={onOpenProfile}
+            onClick={() => onNavigate("perfil")}
             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#FFFFFF]/80 hover:bg-[#2541B2]/5 border border-[#2541B2]/20 rounded-lg text-[9.5px] uppercase tracking-wider font-mono font-bold transition-all text-[#2541B2] shadow-sm cursor-pointer"
             title="Perfil e Estatísticas"
           >
@@ -769,42 +802,53 @@ export default function MainScreen({
                   </div>
 
                   {/* Curriculo Syllabus progress progress representation bar */}
-                  <div className="bg-[#2541B2]/3 border border-[#2541B2]/8 rounded-lg p-2.5 space-y-1.5" id="syllabus-progress-container">
-                    <div className="flex justify-between items-center text-[8.5px] font-mono leading-none">
-                      <span className="text-[#2541B2]/50 uppercase tracking-wider font-semibold">Progresso Especializado (Syllabus)</span>
-                      <span className="font-bold text-[#2541B2]">
-                        {activityProgresses[activeActivity] !== undefined ? activityProgresses[activeActivity] : 10}%
-                      </span>
-                    </div>
-                    {/* Linha de progresso */}
-                    <div className="w-full bg-[#2541B2]/10 h-1.5 rounded-full overflow-hidden relative" id="activity-progress-bar-container">
-                      <motion.div 
-                        key={`${activeActivity}-${activityProgresses[activeActivity] ?? 10}`}
-                        initial={{ width: 0, opacity: 0 }}
-                        animate={{ 
-                          width: `${activityProgresses[activeActivity] !== undefined ? activityProgresses[activeActivity] : 10}%`,
-                          opacity: 1
-                        }}
-                        transition={{
-                          width: { duration: 0.8, ease: "easeOut" },
-                          opacity: { duration: 0.5, ease: "easeIn" }
-                        }}
-                        className="bg-[#2541B2] h-full rounded-full relative" 
-                      >
-                        <motion.div 
-                          animate={{ 
-                            opacity: [0.2, 0.65, 0.2],
-                          }}
-                          transition={{
-                            duration: 3,
-                            repeat: Infinity,
-                            ease: "easeInOut"
-                          }}
-                          className="absolute inset-0 bg-white/30 rounded-full"
-                        />
-                      </motion.div>
-                    </div>
-                  </div>
+                  {(() => {
+                    const activeSessions = sessions.filter(
+                      s => s.completed && (s.activityId === activeActivity || s.notes.toLowerCase().includes(activeActivity.toLowerCase()))
+                    );
+                    const practicedSeconds = activeSessions.reduce((sum, s) => sum + s.durationSeconds, 0);
+                    const practicedHours = practicedSeconds / 3600;
+                    const baseMastery = getBaseMasteryHours(activeActivity);
+                    const masteryTargetHours = baseMastery + (activeSessions.length * 1.5);
+                    const pct = Math.min(100, Math.round((practicedHours / masteryTargetHours) * 100));
+
+                    return (
+                      <div className="bg-[#2541B2]/3 border border-[#2541B2]/8 rounded-lg p-2.5 space-y-1.5" id="syllabus-progress-container">
+                        <div className="flex justify-between items-center text-[8.5px] font-mono leading-none">
+                          <span className="text-[#2541B2]/50 uppercase tracking-wider font-semibold">Horas de Prática & Maestria ({practicedHours.toFixed(1)}h / {masteryTargetHours.toFixed(0)}h)</span>
+                          <span className="font-bold text-[#2541B2]">{pct}%</span>
+                        </div>
+                        {/* Linha de progresso */}
+                        <div className="w-full bg-[#2541B2]/10 h-1.5 rounded-full overflow-hidden relative" id="activity-progress-bar-container">
+                          <motion.div 
+                            key={`${activeActivity}-${pct}`}
+                            initial={{ width: 0, opacity: 0 }}
+                            animate={{ 
+                              width: `${pct}%`,
+                              opacity: 1
+                            }}
+                            transition={{
+                              width: { duration: 0.8, ease: "easeOut" },
+                              opacity: { duration: 0.5, ease: "easeIn" }
+                            }}
+                            className="bg-[#2541B2] h-full rounded-full relative" 
+                          >
+                            <motion.div 
+                              animate={{ 
+                                opacity: [0.2, 0.65, 0.2],
+                              }}
+                              transition={{
+                                duration: 3,
+                                repeat: Infinity,
+                                ease: "easeInOut"
+                              }}
+                              className="absolute inset-0 bg-white/30 rounded-full" 
+                            />
+                          </motion.div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </motion.div>
               ) : (
                 /* SWAP MODE: Course options menu */
@@ -851,8 +895,17 @@ export default function MainScreen({
                   {/* Grid layout of other predefined paths */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[220px] overflow-y-auto pr-1">
                     {filteredActivities.map((act) => {
-                      const prog = activityProgresses[act.id] !== undefined ? activityProgresses[act.id] : 10;
                       const isSelected = activeActivity === act.id;
+                      
+                      // Calculate practice time and dynamic mastery target for this activity!
+                      const actSessions = sessions.filter(
+                        s => s.completed && (s.activityId === act.id || s.notes.toLowerCase().includes(act.id.toLowerCase()))
+                      );
+                      const practicedSeconds = actSessions.reduce((sum, s) => sum + s.durationSeconds, 0);
+                      const practicedHours = practicedSeconds / 3600;
+                      const baseMastery = getBaseMasteryHours(act.id);
+                      const masteryTargetHours = baseMastery + (actSessions.length * 1.5);
+                      const pct = Math.min(100, Math.round((practicedHours / masteryTargetHours) * 100));
 
                       return (
                         <div
@@ -861,14 +914,14 @@ export default function MainScreen({
                             onSetActiveActivity(act.id);
                             setIsSwapping(false);
                           }}
-                          className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all duration-300 relative overflow-hidden select-none flex flex-col justify-between h-[88px] ${
+                          className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all duration-300 relative overflow-hidden select-none flex flex-col justify-between h-[100px] group/card ${
                             isSelected
                               ? "bg-[#2541B2]/5 border-[#2541B2] shadow-sm ring-1 ring-[#2541B2]/10"
                               : "bg-[#FFFFFF]/70 border-[#2541B2]/15 hover:border-[#2541B2]/35 hover:bg-[#FFFFFF]"
                           }`}
                         >
                           <div className="flex justify-between items-start gap-1">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 min-w-0">
                               <div className={`w-6 h-6 rounded flex items-center justify-center transition-colors shrink-0 ${
                                 isSelected 
                                   ? "bg-[#2541B2] text-[#F7F7FF]" 
@@ -876,30 +929,50 @@ export default function MainScreen({
                               }`}>
                                 {getActivityIcon(act.iconName)}
                               </div>
-                              <div className="truncate">
-                                <h4 className="text-[10.5px] font-bold font-sans uppercase tracking-wide leading-tight text-[#2541B2] truncate max-w-[120px]">
+                              <div className="truncate text-left leading-tight">
+                                <h4 className="text-[10.5px] font-bold font-sans uppercase tracking-wide text-[#2541B2] truncate max-w-[110px]">
                                   {act.label}
                                 </h4>
-                                <span className="text-[8.5px] text-[#2541B2]/75 leading-none block truncate max-w-[110px]">
+                                <span className="text-[7.5px] text-[#2541B2]/70 leading-none block truncate max-w-[110px] italic">
                                   {act.desc}
                                 </span>
                               </div>
                             </div>
-                            {isSelected && (
-                              <div className="bg-[#2541B2] text-[#F7F7FF] rounded-full p-0.5 shrink-0">
-                                <Check size={7} />
-                              </div>
-                            )}
+                            
+                            <div className="flex items-center gap-1 shrink-0 z-10">
+                              {/* Delete activity action button */}
+                              {activities.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDeleteActivity(act.id);
+                                  }}
+                                  className="p-1 hover:bg-rose-50 text-[#2541B2]/40 hover:text-rose-500 rounded transition"
+                                  title="Excluir Atividade"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              )}
+                              
+                              {isSelected && (
+                                <div className="bg-[#2541B2] text-[#F7F7FF] rounded-full p-0.5">
+                                  <Check size={7} />
+                                </div>
+                              )}
+                            </div>
                           </div>
 
-                          {/* Minimal bar inside item selection */}
+                          {/* Dynamic Mastery progress row */}
                           <div className="mt-1">
-                            <div className="flex justify-between items-center text-[7.5px] font-mono mb-0.5">
-                              <span className="text-[#2541B2]/40 tracking-wider">Syllabus</span>
-                              <span className="font-bold text-[#2541B2]">{prog}%</span>
+                            <div className="flex justify-between items-center text-[7px] font-mono mb-0.5">
+                              <span className="text-[#2541B2]/50 tracking-wider">Maestria {practicedHours.toFixed(1)}h/{masteryTargetHours.toFixed(0)}h</span>
+                              <span className="font-bold text-[#2541B2]">{pct}%</span>
                             </div>
                             <div className="w-full bg-[#2541B2]/10 h-0.5 rounded-full overflow-hidden">
-                              <div className="bg-[#2541B2] h-full rounded-full" style={{ width: `${prog}%` }} />
+                              <div className="bg-[#2541B2] h-full rounded-full" style={{ width: `${pct}%` }} />
                             </div>
                           </div>
                         </div>
@@ -919,33 +992,93 @@ export default function MainScreen({
                     ) : (
                       <form
                         onSubmit={handleAddCustomActivity}
-                        className="p-2.5 rounded-xl border border-[#2541B2] bg-[#FFFFFF] flex flex-col justify-between h-[88px]"
+                        className="p-3 rounded-xl border border-[#2541B2]/40 bg-[#FFFFFF] flex flex-col gap-2.5"
                       >
-                        <div className="space-y-0.5">
-                          <label className="text-[7.5px] font-mono uppercase tracking-widest text-[#2541B2]/60 block leading-none">Nome do seu Curso</label>
+                        <div className="space-y-1 text-left">
+                          <label className="text-[7.5px] font-mono uppercase tracking-widest text-[#2541B2]/70 block font-black leading-none">Nome do seu Curso</label>
                           <input
                             type="text"
                             autoFocus
                             maxLength={26}
+                            required
                             value={customNameInput}
                             onChange={(e) => setCustomNameInput(e.target.value)}
-                            placeholder="ex. Marcenaria Fina"
-                            className="w-full bg-[#F7F7FF] border border-[#2541B2]/30 rounded px-1.5 py-0.5 text-[10px] text-[#2541B2] focus:outline-none focus:border-[#2541B2]"
+                            placeholder="Marcar tempo em..."
+                            className="w-full bg-[#F7F7FF] border border-[#2541B2]/20 rounded px-2.5 py-1 text-[10px] text-[#2541B2] focus:outline-none focus:border-[#2541B2]"
                           />
                         </div>
-                        <div className="flex justify-end gap-1 leading-none">
+
+                        <div className="space-y-1 text-left">
+                          <label className="text-[7.5px] font-mono uppercase tracking-widest text-[#2541B2]/70 block font-black leading-none">Breve Descrição</label>
+                          <input
+                            type="text"
+                            maxLength={40}
+                            value={customDescInput}
+                            onChange={(e) => setCustomDescInput(e.target.value)}
+                            placeholder="Ex. Escultura tátil & sussurros..."
+                            className="w-full bg-[#F7F7FF] border border-[#2541B2]/20 rounded px-2.5 py-1 text-[10px] text-[#2541B2] focus:outline-none focus:border-[#2541B2]"
+                          />
+                        </div>
+
+                        {/* Category selection */}
+                        <div className="space-y-1 text-left">
+                          <label className="text-[7.5px] font-mono uppercase tracking-widest text-[#2541B2]/70 block font-black leading-none">Foco de Atenção</label>
+                          <div className="grid grid-cols-3 gap-1">
+                            {(["manual", "intelecto", "corpo"] as const).map((cat) => (
+                              <button
+                                type="button"
+                                key={cat}
+                                onClick={() => setCustomCategoryInput(cat)}
+                                className={`py-1 text-[8px] uppercase tracking-wider font-mono font-bold rounded-md border transition ${
+                                  customCategoryInput === cat
+                                    ? "bg-[#2541B2] border-[#2541B2] text-white"
+                                    : "bg-transparent border-[#2541B2]/15 hover:bg-slate-50 text-[#2541B2]/80"
+                                }`}
+                              >
+                                {cat === "manual" ? "Manuais" : cat === "intelecto" ? "Intelec." : "Presença"}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Icon choices collection */}
+                        <div className="space-y-1 text-left">
+                          <label className="text-[7.5px] font-mono uppercase tracking-widest text-[#2541B2]/70 block font-black leading-none">Símbolo Visual</label>
+                          <div className="grid grid-cols-5 gap-1.5 p-1 bg-slate-50 rounded-lg border border-slate-200">
+                            {[
+                              "Hammer", "BookOpen", "Feather", "Compass", "Sprout", 
+                              "Scissors", "Layers", "Wind", "Wrench", "Edit3"
+                            ].map((iconName) => (
+                              <button
+                                type="button"
+                                key={iconName}
+                                onClick={() => setCustomIconInput(iconName)}
+                                className={`p-1.5 flex items-center justify-center rounded-md border duration-100 ${
+                                  customIconInput === iconName
+                                    ? "bg-[#2541B2]/15 border-[#2541B2] text-[#2541B2]"
+                                    : "border-transparent text-[#2541B2]/60 hover:bg-white"
+                                }`}
+                                title={iconName}
+                              >
+                                {getActivityIcon(iconName)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end gap-1.5 leading-none border-t border-[#2541B2]/5 pt-2">
                           <button
                             type="button"
                             onClick={() => setIsAddingCustom(false)}
-                            className="px-2 py-0.5 border border-[#2541B2]/20 text-[#2541B2]/85 text-[8px] uppercase font-bold rounded"
+                            className="px-3 py-1 border border-[#2541B2]/20 text-[#2541B2]/85 text-[9px] uppercase font-bold rounded-lg"
                           >
                             Voltar
                           </button>
                           <button
                             type="submit"
-                            className="px-2 py-0.5 bg-[#2541B2] text-[#F7F7FF] text-[8px] uppercase font-bold rounded hover:bg-[#1E3491]"
+                            className="px-3 py-1 bg-[#2541B2] text-[#F7F7FF] text-[9px] uppercase font-bold rounded-lg hover:bg-[#1E3491]"
                           >
-                            Ok
+                            Confirmar
                           </button>
                         </div>
                       </form>
