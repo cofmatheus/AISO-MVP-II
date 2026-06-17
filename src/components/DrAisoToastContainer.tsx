@@ -142,11 +142,11 @@ export default function DrAisoToastContainer({ toasts, onDismiss }: DrAisoToastC
                 <X size={12} />
               </button>
 
-              {/* Animated bottom progress bar reflecting 6-second lifespan */}
+              {/* Animated bottom progress bar reflecting increased lifespan */}
               <motion.div 
                 initial={{ width: "100%" }}
                 animate={{ width: "0%" }}
-                transition={{ duration: 6, ease: "linear" }}
+                transition={{ duration: 15, ease: "linear" }}
                 className="absolute bottom-0 left-0 right-0 h-[3px] bg-emerald-500/30"
               />
             </motion.div>

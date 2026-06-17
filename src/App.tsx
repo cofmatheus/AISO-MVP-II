@@ -30,6 +30,7 @@ const STORAGE_SESSIONS = "desmame_sessions";
 const STORAGE_ERROR_LOGS = "desmame_error_logs";
 const STORAGE_SETTINGS = "desmame_settings";
 const STORAGE_ACTIVITIES = "aiso_activities";
+const STORAGE_SELECTED_ACTIVITIES = "aiso_selected_activities";
 
 const defaultSettings: AppSettings = {
   dailyGoalMinutes: 30,
@@ -78,7 +79,7 @@ const getBaseMasteryHours = (id: string): number => {
 
 export default function App() {
   // Dr. Aiso periodic automated triggers
-  const { toasts, dismissToast } = useDrAiso();
+  const { toasts, toastHistory, dismissToast } = useDrAiso();
 
   // Application view route
   const [view, setView] = useState<"main" | "pratica_livre" | "modo_sombra" | "diario_erros" | "perfil">("main");
@@ -112,6 +113,16 @@ export default function App() {
     return DEFAULT_ACTIVITIES;
   });
 
+  const [selectedActivities, setSelectedActivities] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_SELECTED_ACTIVITIES);
+      if (stored) return JSON.parse(stored);
+    } catch (_) {}
+    // Fallback: include the active activity if present
+    const fallback = localStorage.getItem("aiso_active_activity");
+    return fallback ? [fallback] : [];
+  });
+
   const [sessions, setSessions] = useState<PracticeSession[]>([]);
   const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
@@ -122,6 +133,13 @@ export default function App() {
   const handleSetActiveActivity = (act: string) => {
     setActiveActivity(act);
     localStorage.setItem("aiso_active_activity", act);
+
+    setSelectedActivities((prev) => {
+      if (prev.includes(act)) return prev;
+      const next = [act, ...prev];
+      localStorage.setItem(STORAGE_SELECTED_ACTIVITIES, JSON.stringify(next));
+      return next;
+    });
   };
 
   const [oauthError, setOauthError] = useState<string>("");
@@ -369,11 +387,30 @@ export default function App() {
     localStorage.setItem(STORAGE_ACTIVITIES, JSON.stringify(activities));
   }, [activities]);
 
+  // Persist selected activities
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_SELECTED_ACTIVITIES, JSON.stringify(selectedActivities));
+    } catch (e) {
+      // ignore
+    }
+  }, [selectedActivities]);
+
   const handleAddActivity = (newAct: ActivityItem) => {
     setActivities((prev) => {
       // Avoid duplication
       if (prev.some((a) => a.id === newAct.id)) return prev;
-      return [...prev, newAct];
+      const next = [...prev, newAct];
+
+      // mark as selected as well
+      setSelectedActivities((sPrev) => {
+        if (sPrev.includes(newAct.id)) return sPrev;
+        const sNext = [newAct.id, ...sPrev];
+        localStorage.setItem(STORAGE_SELECTED_ACTIVITIES, JSON.stringify(sNext));
+        return sNext;
+      });
+
+      return next;
     });
   };
 
@@ -639,6 +676,9 @@ export default function App() {
                   activities={activities}
                   onAddActivity={handleAddActivity}
                   onDeleteActivity={handleDeleteActivity}
+                  toasts={toasts}
+                  toastHistory={toastHistory}
+                  onDismissToast={dismissToast}
                 />
               )}
 
@@ -679,6 +719,7 @@ export default function App() {
                   sessions={sessions}
                   errorLogs={errorLogs}
                   activities={activities}
+                  selectedActivityIds={selectedActivities}
                 />
               )}
             </motion.div>

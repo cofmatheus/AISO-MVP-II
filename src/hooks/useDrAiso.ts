@@ -9,13 +9,12 @@ export interface DrAisoToast {
 
 export function useDrAiso() {
   const [toasts, setToasts] = useState<DrAisoToast[]>([]);
+  const [toastHistory, setToastHistory] = useState<DrAisoToast[]>([]);
 
-  // Function to manually dismiss a toast
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  // Function to trigger a new random toast notification
   const triggerToast = useCallback(() => {
     const randomIndex = Math.floor(Math.random() * quotesData.length);
     const selectedQuote = quotesData[randomIndex];
@@ -27,34 +26,29 @@ export function useDrAiso() {
       category: selectedQuote.category,
     };
 
-    // Add new toast to active pile
     setToasts((prev) => [...prev, newToast]);
+    setToastHistory((prev) => [newToast, ...prev]);
 
-    // Auto-dismiss the specific toast after 6 seconds
-    setTimeout(() => {
+    window.setTimeout(() => {
       dismissToast(toastId);
-    }, 6000);
+    }, 15000);
   }, [dismissToast]);
 
-  // Handle randomized periodic triggers (e.g. between 15 and 35 seconds)
   useEffect(() => {
     let timerId: number;
 
     const scheduleNext = () => {
-      // Pick random delay between 15000 ms (15s) and 35000 ms (35s)
-      const randomDelay = Math.floor(Math.random() * (35000 - 15000 + 1)) + 15000;
-
+      const randomDelay = Math.floor(Math.random() * (1200000 - 600000 + 1)) + 600000;
       timerId = window.setTimeout(() => {
         triggerToast();
-        scheduleNext(); // Schedule subsequent one
+        scheduleNext();
       }, randomDelay);
     };
 
-    // Delay the very first notification slightly so it doesn't pop up immediately on startup
     const initialDelay = window.setTimeout(() => {
       triggerToast();
       scheduleNext();
-    }, 10000);
+    }, 300000);
 
     return () => {
       window.clearTimeout(initialDelay);
@@ -64,7 +58,8 @@ export function useDrAiso() {
 
   return {
     toasts,
+    toastHistory,
     dismissToast,
-    triggerToast, // Exposed so the user can summon one manually too!
+    triggerToast,
   };
 }

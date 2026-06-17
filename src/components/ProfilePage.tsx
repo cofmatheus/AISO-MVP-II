@@ -35,6 +35,7 @@ interface ProfilePageProps {
   sessions: PracticeSession[];
   errorLogs: ErrorLog[];
   activities: ActivityItem[];
+  selectedActivityIds?: string[];
 }
 
 const AVATAR_PRESETS = [
@@ -83,7 +84,8 @@ export default function ProfilePage({
   onUpdateProfile,
   sessions,
   errorLogs,
-  activities
+  activities,
+  selectedActivityIds
 }: ProfilePageProps) {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [editedName, setEditedName] = useState<string>(profile.name);
@@ -114,6 +116,11 @@ export default function ProfilePage({
       : "Nenhuma registrada";
 
   const [firebaseAuthError, setFirebaseAuthError] = useState<string | null>(null);
+
+  // Only show activities that the user previously selected
+  const displayedActivities = (typeof (selectedActivityIds) !== 'undefined' && selectedActivityIds && selectedActivityIds.length > 0)
+    ? activities.filter(a => selectedActivityIds!.includes(a.id))
+    : [];
 
   const handleGoogleLoginTrigger = async () => {
     setFirebaseAuthError(null);
@@ -519,72 +526,90 @@ export default function ProfilePage({
             </div>
 
             <div className="space-y-5">
-              {activities.map((act) => {
-                // Compute total minutes practiced for this specific activity
-                const searchKey = act.id.toLowerCase();
-                const actSessions = sessions.filter(
-                  s => s.completed && (s.activityId === act.id || s.notes.toLowerCase().includes(searchKey))
-                );
-                
-                const practicedSeconds = actSessions.reduce((sum, s) => sum + s.durationSeconds, 0);
-                const practicedHours = practicedSeconds / 3600;
-                
-                // Mastery model: base hours + (completed sessions count * 1.5 hours)
-                const baseMastery = getBaseMasteryHours(act.id);
-                const sessionMultiplier = actSessions.length * 1.5;
-                const masteryTarget = baseMastery + sessionMultiplier;
-                
-                // Progress percent
-                const pct = Math.min(100, Math.round((practicedHours / masteryTarget) * 100));
-                
-                return (
-                  <div key={act.id} className="p-3 border border-[#2541B2]/10 bg-white/50 hover:bg-[#F7F7FF]/30 rounded-xl transition duration-200" id={`mastery-card-${act.id}`}>
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex gap-2.5 items-center">
-                        <div className="w-7 h-7 rounded-lg bg-[#2541B2]/5 border border-[#2541B2]/12 flex items-center justify-center shrink-0">
-                          {renderActivityIcon(act.iconName)}
+              {displayedActivities.length === 0 ? (
+                <div className="p-6 border border-dashed rounded-xl bg-white/50 text-center">
+                  <h4 className="text-[11px] font-bold text-[#2541B2]">Nenhuma atividade selecionada</h4>
+                  <p className="text-[9px] text-[#2541B2]/70 mt-1">Você ainda não escolheu atividades. Toque abaixo para selecionar.</p>
+                  <div className="mt-3">
+                    <button
+                      onClick={() => {
+                        try { localStorage.setItem('aiso_activity_selector_source','profile'); } catch(e) {}
+                        onBack();
+                      }}
+                      className="px-3 py-1 bg-[#2541B2] text-white rounded-lg text-[10px] font-bold"
+                    >
+                      Selecionar atividade
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                displayedActivities.map((act) => {
+                  // Compute total minutes practiced for this specific activity
+                  const searchKey = act.id.toLowerCase();
+                  const actSessions = sessions.filter(
+                    s => s.completed && (s.activityId === act.id || s.notes.toLowerCase().includes(searchKey))
+                  );
+                  
+                  const practicedSeconds = actSessions.reduce((sum, s) => sum + s.durationSeconds, 0);
+                  const practicedHours = practicedSeconds / 3600;
+                  
+                  // Mastery model: base hours + (completed sessions count * 1.5 hours)
+                  const baseMastery = getBaseMasteryHours(act.id);
+                  const sessionMultiplier = actSessions.length * 1.5;
+                  const masteryTarget = baseMastery + sessionMultiplier;
+                  
+                  // Progress percent
+                  const pct = Math.min(100, Math.round((practicedHours / masteryTarget) * 100));
+                  
+                  return (
+                    <div key={act.id} className="p-3 border border-[#2541B2]/10 bg-white/50 hover:bg-[#F7F7FF]/30 rounded-xl transition duration-200" id={`mastery-card-${act.id}`}>
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex gap-2.5 items-center">
+                          <div className="w-7 h-7 rounded-lg bg-[#2541B2]/5 border border-[#2541B2]/12 flex items-center justify-center shrink-0">
+                            {renderActivityIcon(act.iconName)}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="font-serif text-[11px] font-bold text-[#2541B2] capitalize tracking-wide leading-tight">
+                              {act.label}
+                            </h4>
+                            <span className="text-[7.5px] font-mono tracking-widest text-[#2541B2]/50 font-bold uppercase block leading-none mt-0.5">
+                              Categoria: {act.category === "manual" ? "Manuais" : act.category === "intelecto" ? "Cognitivos" : "Presença"}
+                            </span>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <h4 className="font-serif text-[11px] font-bold text-[#2541B2] capitalize tracking-wide leading-tight">
-                            {act.label}
-                          </h4>
-                          <span className="text-[7.5px] font-mono tracking-widest text-[#2541B2]/50 font-bold uppercase block leading-none mt-0.5">
-                            Categoria: {act.category === "manual" ? "Manuais" : act.category === "intelecto" ? "Cognitivos" : "Presença"}
+                        
+                        {/* Metric state */}
+                        <div className="text-right">
+                          <span className="text-[9.5px] font-mono font-black text-[#2541B2]">
+                            {practicedHours.toFixed(2)}h / {masteryTarget.toFixed(1)}h
                           </span>
+                          <p className="text-[7px] uppercase tracking-wider font-mono text-[#2541B2]/60 mt-0.5">
+                            {pct}% da maestria
+                          </p>
                         </div>
+                      </div>
+
+                      <p className="text-[9px] text-slate-650 leading-relaxed font-sans mb-3">{act.desc}</p>
+
+                      {/* Custom progress visual bar */}
+                      <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200 relative">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${pct}%` }}
+                          transition={{ duration: 0.8, ease: "easeOut" }}
+                          className="h-full bg-gradient-to-r from-blue-500 to-[#2541B2]"
+                        />
                       </div>
                       
-                      {/* Metric state */}
-                      <div className="text-right">
-                        <span className="text-[9.5px] font-mono font-black text-[#2541B2]">
-                          {practicedHours.toFixed(2)}h / {masteryTarget.toFixed(1)}h
-                        </span>
-                        <p className="text-[7px] uppercase tracking-wider font-mono text-[#2541B2]/60 mt-0.5">
-                          {pct}% da maestria
-                        </p>
+                      <div className="flex justify-between mt-1.5 text-[7px] font-mono uppercase tracking-widest text-[#2541B2]/40">
+                        <span>Iniciado</span>
+                        <span>{actSessions.length} sessões concluídas ({sessionMultiplier > 0 ? `+${sessionMultiplier}h na meta` : "meta original"})</span>
+                        <span>Mestre</span>
                       </div>
                     </div>
-
-                    <p className="text-[9px] text-slate-650 leading-relaxed font-sans mb-3">{act.desc}</p>
-
-                    {/* Custom progress visual bar */}
-                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200 relative">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${pct}%` }}
-                        transition={{ duration: 0.8, ease: "easeOut" }}
-                        className="h-full bg-gradient-to-r from-blue-500 to-[#2541B2]"
-                      />
-                    </div>
-                    
-                    <div className="flex justify-between mt-1.5 text-[7px] font-mono uppercase tracking-widest text-[#2541B2]/40">
-                      <span>Iniciado</span>
-                      <span>{actSessions.length} sessões concluídas ({sessionMultiplier > 0 ? `+${sessionMultiplier}h na meta` : "meta original"})</span>
-                      <span>Mestre</span>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
 

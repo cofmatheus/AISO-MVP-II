@@ -34,12 +34,14 @@ import {
   CalendarDays,
   Send,
   Bot,
-  X
+  X,
+  Target
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { GAZETA_BY_ACTIVITY } from "../data/gazetaData";
 
 import { ActivityItem } from "../types";
+import { DrAisoToast } from "../hooks/useDrAiso";
 
 interface MainScreenProps {
   onNavigate: (view: "main" | "pratica_livre" | "modo_sombra" | "diario_erros" | "perfil") => void;
@@ -55,6 +57,9 @@ interface MainScreenProps {
   activities: ActivityItem[];
   onAddActivity: (act: ActivityItem) => void;
   onDeleteActivity: (id: string) => void;
+  toasts: DrAisoToast[];
+  toastHistory: DrAisoToast[];
+  onDismissToast: (id: string) => void;
 }
 
 const ACTIVITY_DETAILS = [
@@ -137,6 +142,9 @@ export default function MainScreen({
   activities,
   onAddActivity,
   onDeleteActivity,
+  toasts,
+  toastHistory,
+  onDismissToast,
 }: MainScreenProps) {
   // Compute today's total minutes of focus
   const today = new Date().toDateString();
@@ -293,7 +301,7 @@ export default function MainScreen({
   }, [activeActivity]);
 
   // Active news / literature tab for sidebar
-  const [activeAsideTab, setActiveAsideTab] = useState<"news" | "artigo">("news");
+  const [activeAsideTab, setActiveAsideTab] = useState<"news" | "artigo" | "notificacoes">("news");
   const [isOrientadorExpanded, setIsOrientadorExpanded] = useState<boolean>(false);
   const [activeNotification, setActiveNotification] = useState<string | null>(null);
 
@@ -319,8 +327,8 @@ export default function MainScreen({
 
     let timer: number;
     const scheduleNextNotification = () => {
-      // Pick random delay between 120 seconds (2m) and 300 seconds (5m) for peaceful contemplation
-      const delay = Math.floor(Math.random() * (300000 - 120000 + 1)) + 120000;
+      // Pick random delay between 600000 ms (10min) and 1200000 ms (20min) for a calmer cadence
+      const delay = Math.floor(Math.random() * (1200000 - 600000 + 1)) + 600000;
       
       timer = window.setTimeout(() => {
         const randomIndex = Math.floor(Math.random() * DR_AISO_RANDOM_SPEECHES.length);
@@ -329,12 +337,12 @@ export default function MainScreen({
       }, delay);
     };
 
-    // First trigger after 150 seconds (2.5m)
+    // First trigger after 600000 ms (10min)
     const firstTimeout = window.setTimeout(() => {
       const randomIndex = Math.floor(Math.random() * DR_AISO_RANDOM_SPEECHES.length);
       setActiveNotification(DR_AISO_RANDOM_SPEECHES[randomIndex]);
       scheduleNextNotification();
-    }, 150000);
+    }, 600000);
 
     return () => {
       window.clearTimeout(firstTimeout);
@@ -940,6 +948,16 @@ export default function MainScreen({
                           onClick={() => {
                             onSetActiveActivity(act.id);
                             setIsSwapping(false);
+
+                            try {
+                              const src = localStorage.getItem("aiso_activity_selector_source");
+                              if (src === "profile") {
+                                localStorage.removeItem("aiso_activity_selector_source");
+                                onNavigate("perfil");
+                              }
+                            } catch (e) {
+                              // ignore storage errors
+                            }
                           }}
                           className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all duration-300 relative overflow-hidden select-none flex flex-col justify-between h-[100px] group/card ${
                             isSelected
@@ -1143,6 +1161,16 @@ export default function MainScreen({
             >
               Ensaios
             </button>
+            <button
+              onClick={() => setActiveAsideTab("notificacoes")}
+              className={`flex-1 py-1.5 text-[9px] uppercase font-black rounded-lg transition-all text-center cursor-pointer ${
+                activeAsideTab === "notificacoes"
+                  ? "bg-[#2541B2] text-[#F7F7FF] shadow-sm"
+                  : "text-[#2541B2]/60 hover:text-[#2541B2] hover:bg-[#2541B2]/5"
+              }`}
+            >
+              Notificações
+            </button>
           </div>
 
           <AnimatePresence mode="wait">
@@ -1230,6 +1258,42 @@ export default function MainScreen({
                   <div className="bg-[#2541B2]/5 border-l-2 border-[#2541B2]/30 p-2 text-[#2541B2] rounded-r-lg italic text-[9.5px] my-1">
                     "{gazetaData.article.quote}"
                   </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeAsideTab === "notificacoes" && (
+              <motion.div
+                key={`tab-notifications-${activeActivity}`}
+                initial={{ opacity: 0, x: 4 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -4 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-2 max-h-[310px] overflow-y-auto pr-1 no-scrollbar-y text-[#2541B2]"
+              >
+                <div className="border-b border-[#2541B2]/10 pb-1.5">
+                  <h4 className="flex items-center gap-1.5 text-[10.5px] uppercase font-mono tracking-widest font-black">
+                    <Target size={11} className="text-amber-600 shrink-0" />
+                    <span>Notificações do Dr. Aiso</span>
+                  </h4>
+                </div>
+
+                <div className="space-y-2 text-[11px]">
+                  {toastHistory.length === 0 ? (
+                    <div className="text-[9px] text-[#2541B2]/60 italic">Nenhuma notificação registrada ainda.</div>
+                  ) : (
+                    toastHistory.map((t) => (
+                      <div key={t.id} className="p-2 bg-white border border-[#2541B2]/10 rounded-lg flex justify-between items-start">
+                        <div className="min-w-0">
+                          <div className="text-[9px] font-mono text-[#2541B2]/60 uppercase">{t.category}</div>
+                          <div className="text-[10px] text-[#2541B2] italic mt-1">{t.quote}</div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <button onClick={() => onDismissToast(t.id)} className="text-[11px] text-[#2541B2]/60 hover:text-[#2541B2]">Ignorar</button>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </motion.div>
             )}
