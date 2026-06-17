@@ -105,6 +105,31 @@ Por favor:
 
   // In-memory registry to coordinate partitioned Supabase logins across frames and popup windows
   const activeAuthSessions = new Map<string, { session: any; profile: any }>();
+  const activeVerifiers = new Map<string, Array<{ key: string; value: string | null }>>();
+
+  // Save verifiers from the initiating window
+  app.post("/api/auth/save-verifier", (req, res) => {
+    const { syncId, verifiers } = req.body;
+    if (!syncId || !verifiers) {
+      return res.status(400).json({ error: "Missing syncId or verifiers parameters" });
+    }
+    activeVerifiers.set(syncId, verifiers);
+    res.json({ success: true });
+  });
+
+  // Fetch verifiers for the popup window
+  app.get("/api/auth/get-verifier", (req, res) => {
+    const { syncId } = req.query;
+    if (!syncId || typeof syncId !== "string") {
+      return res.status(400).json({ error: "Missing or invalid syncId parameter" });
+    }
+    const verifiers = activeVerifiers.get(syncId);
+    if (verifiers) {
+      activeVerifiers.delete(syncId); // Use once
+      return res.json({ verifiers });
+    }
+    res.json({ verifiers: [] });
+  });
 
   // Popup pushes authenticated session here
   app.post("/api/auth/save-session", (req, res) => {

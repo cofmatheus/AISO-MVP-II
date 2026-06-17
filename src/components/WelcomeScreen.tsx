@@ -166,6 +166,29 @@ export default function WelcomeScreen({
                 )}
                 <span>Entrar com o Google</span>
               </button>
+
+              <div className="relative flex py-2 items-center justify-center">
+                <div className="flex-grow border-t border-[#2541B2]/10" />
+                <span className="flex-shrink mx-4 text-[9px] uppercase tracking-widest font-mono text-[#2541B2]/50 select-none">ou</span>
+                <div className="flex-grow border-t border-[#2541B2]/10" />
+              </div>
+
+              <button
+                id="offline-test-login-btn"
+                onClick={() => {
+                  onLogin({
+                    uid: "offline-test-user-id",
+                    name: "Artesão Contemplativo(Modo Offline)",
+                    email: "demo@aiso.offline",
+                    photoURL: "https://api.dicebear.com/7.x/bottts/svg?seed=offline-craft",
+                    isLoggedIn: true
+                  });
+                }}
+                disabled={loading}
+                className="w-full py-3.5 bg-white hover:bg-[#2541B2]/5 border border-[#2541B2]/30 text-[#2541B2] text-xs uppercase tracking-widest font-black rounded-xl duration-300 transition-all shadow-sm active:scale-[0.99] flex items-center justify-center gap-2.5 cursor-pointer"
+              >
+                <span>Entrar no Modo Offline (Teste)</span>
+              </button>
             </div>
           </div>
         </motion.div>
