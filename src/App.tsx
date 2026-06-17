@@ -289,6 +289,22 @@ export default function App() {
     };
   }, [profile.isLoggedIn]);
 
+  // Broadcast session to parent immediately if we are inside the popup and logged in.
+  // This allows the parent tab inside the AI Studio iframe to instantly receive the authentication session.
+  useEffect(() => {
+    if (window.name === "AisoGoogleAuthPopup" && profile.isLoggedIn && window.opener) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          window.opener.postMessage({
+            type: "SUPABASE_SESSION_ESTABLISHED",
+            session: session,
+            profile: profile
+          }, window.location.origin);
+        }
+      });
+    }
+  }, [profile.isLoggedIn]);
+
   // PostMessage popup response listener for Supabase authentication callback exchange
   // AND direct window redirect callback check on page load
   useEffect(() => {
@@ -313,6 +329,15 @@ export default function App() {
             isLoggedIn: true
           };
           handleSaveProfile(loggedProfile);
+
+          // If this is the callback popup, immediately broadcast session details to opener
+          if (window.name === "AisoGoogleAuthPopup" && window.opener && data.session) {
+            window.opener.postMessage({
+              type: "SUPABASE_SESSION_ESTABLISHED",
+              session: data.session,
+              profile: loggedProfile
+            }, window.location.origin);
+          }
         }
       }).catch(err => {
         console.error("Falha ao processar código de login direto:", err);
@@ -329,6 +354,26 @@ export default function App() {
 
       if (!isAllowedOrigin) {
         return;
+      }
+
+      // Handle session transmitted directly from popup to opener (e.g. cross-partition scenarios)
+      if (event.data?.type === "SUPABASE_SESSION_ESTABLISHED") {
+        const { session, profile: remoteProfile } = event.data;
+        if (session) {
+          try {
+            const { error } = await supabase.auth.setSession({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token
+            });
+            if (error) throw error;
+            
+            if (remoteProfile) {
+              handleSaveProfile(remoteProfile);
+            }
+          } catch (e) {
+            console.error("Erro ao aplicar sessão transmitida via postMessage:", e);
+          }
+        }
       }
 
       if (event.data?.type === "SUPABASE_AUTH_CALLBACK") {
@@ -351,6 +396,15 @@ export default function App() {
                 isLoggedIn: true
               };
               handleSaveProfile(loggedProfile);
+
+              // Broadcast it just in case
+              if (window.name === "AisoGoogleAuthPopup" && window.opener && data.session) {
+                window.opener.postMessage({
+                  type: "SUPABASE_SESSION_ESTABLISHED",
+                  session: data.session,
+                  profile: loggedProfile
+                }, window.location.origin);
+              }
             }
           } catch (err) {
             console.error("Falha ao processar código de login com o Google:", err);
@@ -446,8 +500,6 @@ export default function App() {
   // Save changes helper functions
   const handleSaveProfile = (newProfile: UserProfile) => {
     setProfile(newProfile);
-    setView("main");
-    setIsLoginLoading(false);
     localStorage.setItem("aiso_user_profile", JSON.stringify(newProfile));
     if (isKeysConfigured && newProfile.isLoggedIn && newProfile.uid) {
       syncUserProfile(newProfile.uid, newProfile);
