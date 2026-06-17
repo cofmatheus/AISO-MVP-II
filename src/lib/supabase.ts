@@ -20,12 +20,14 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
  * Initiates the Google OAuth flow conforming to AI Studio's iframe-popup protocols.
  * Uses skipBrowserRedirect to obtain the Supabase auth provider URL, which can be opened in a secure popup.
  */
-export async function signInWithGoogleSupabase() {
+export async function signInWithGoogleSupabase(syncId?: string) {
   if (!isSupabaseConfigured) {
     throw new Error("Supabase não configurado. Por favor, cadastre as chaves ambientais.");
   }
 
-  const redirectUri = `${window.location.origin}/auth/callback`;
+  const redirectUri = syncId 
+    ? `${window.location.origin}/auth/callback?syncId=${syncId}`
+    : `${window.location.origin}/auth/callback`;
   
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",

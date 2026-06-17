@@ -166,7 +166,27 @@ export default function App() {
         throw new Error("Supabase não configurado. Por favor, adicione as variáveis no seu .env ou nas Configurações da plataforma.");
       }
 
-      const authUrl = await signInWithGoogleSupabase();
+      // Generate a dynamic session synchronization handshake ID
+      const syncId = Math.random().toString(36).substring(2, 11) + Date.now().toString(36).substring(5, 9);
+      const authUrl = await signInWithGoogleSupabase(syncId);
+
+      // Extract the Supabase PKCE code verifier and register it on the server
+      // so the popup can load it and successfully complete the code exchange even with storage partitioning!
+      try {
+        const verifierKeys = Object.keys(localStorage).filter(
+          k => k.includes("auth-token-code-verifier") || k.includes("code-verifier")
+        );
+        const verifiers = verifierKeys.map(k => ({ key: k, value: localStorage.getItem(k) }));
+        if (verifiers.length > 0) {
+          await fetch("/api/auth/save-verifier", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ syncId, verifiers })
+          });
+        }
+      } catch (errVerifier) {
+        console.warn("Falha ao sincronizar o verifier PKCE com o servidor:", errVerifier);
+      }
       
       const width = 600;
       const height = 700;
@@ -183,10 +203,47 @@ export default function App() {
         throw new Error("O bloqueador de popups impediu a abertura da janela. Por favor, libere popups para poder autenticar.");
       }
 
-      // Check popup location every 500ms to instantly secure authorization code
-      const intervalId = setInterval(async () => {
+      let backendPollInterval: any = null;
+      let locationIntervalId: any = null;
+
+      const clearAllTimers = () => {
+        if (backendPollInterval) clearInterval(backendPollInterval);
+        if (locationIntervalId) clearInterval(locationIntervalId);
+      };
+
+      // 1. Core coordination polling: matches the authenticated session via the backend
+      backendPollInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/auth/poll-session?syncId=${syncId}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && !data.pending) {
+              clearAllTimers();
+              if (popupWindow && !popupWindow.closed) {
+                popupWindow.close();
+              }
+              if (data.session) {
+                const { error } = await supabase.auth.setSession({
+                  access_token: data.session.access_token,
+                  refresh_token: data.session.refresh_token
+                });
+                if (error) console.warn("Supabase session update warning:", error);
+              }
+              if (data.profile) {
+                handleSaveProfile(data.profile);
+              }
+              setIsLoginLoading(false);
+            }
+          }
+        } catch (pollErr) {
+          console.warn("Erro ao buscar sessão autenticada no servidor:", pollErr);
+        }
+      }, 1000);
+
+      // 2. Direct same-origin location parameter checking fallback
+      locationIntervalId = setInterval(async () => {
         if (popupWindow.closed) {
-          clearInterval(intervalId);
+          clearAllTimers();
           setIsLoginLoading(false);
           return;
         }
@@ -198,7 +255,7 @@ export default function App() {
           const code = searchParams.get("code");
 
           if (code) {
-            clearInterval(intervalId);
+            clearAllTimers();
             popupWindow.close();
 
             // Run direct code-to-session exchange in primary tab!
@@ -317,34 +374,98 @@ export default function App() {
     };
   }, [profile.isLoggedIn]);
 
+  // Broadcast session to parent immediately if we are inside the popup and logged in.
+  // This allows the parent tab inside the AI Studio iframe to instantly receive the authentication session.
+  useEffect(() => {
+    if (window.name === "AisoGoogleAuthPopup" && profile.isLoggedIn && window.opener) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          window.opener.postMessage({
+            type: "SUPABASE_SESSION_ESTABLISHED",
+            session: session,
+            profile: profile
+          }, window.location.origin);
+        }
+      });
+    }
+  }, [profile.isLoggedIn]);
+
   // PostMessage popup response listener for Supabase authentication callback exchange
   // AND direct window redirect callback check on page load
   useEffect(() => {
     // 1. Immediate URL parameter check on load (fallback when popup redirects parent or is redirected directly)
     const queryParams = new URLSearchParams(window.location.search);
     const code = queryParams.get("code");
+    const syncId = queryParams.get("syncId");
 
     if (code) {
       // Remove query parameters from url so they don't linger in address bar
       const newUrl = window.location.pathname + window.location.hash;
       window.history.replaceState({}, document.title, newUrl);
 
-      supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
-        if (error) throw error;
-        if (data?.user) {
-          const u = data.user;
-          const loggedProfile: UserProfile = {
-            uid: u.id,
-            name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "Membro Contemplativo",
-            email: u.email || "",
-            photoURL: u.user_metadata?.avatar_url || u.user_metadata?.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(u.id)}`,
-            isLoggedIn: true
-          };
-          handleSaveProfile(loggedProfile);
+      const doAuthSyncAndExchange = async () => {
+        if (syncId) {
+          try {
+            const verRes = await fetch(`/api/auth/get-verifier?syncId=${syncId}`);
+            if (verRes.ok) {
+              const { verifiers } = await verRes.json();
+              if (Array.isArray(verifiers)) {
+                for (const item of verifiers) {
+                  if (item.key && item.value) {
+                    localStorage.setItem(item.key, item.value);
+                  }
+                }
+              }
+            }
+          } catch (verErr) {
+            console.warn("Falha ao carregar verifiers para troca de PKCE:", verErr);
+          }
         }
-      }).catch(err => {
-        console.error("Falha ao processar código de login direto:", err);
-      });
+
+        try {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+          if (data?.user) {
+            const u = data.user;
+            const loggedProfile: UserProfile = {
+              uid: u.id,
+              name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "Membro Contemplativo",
+              email: u.email || "",
+              photoURL: u.user_metadata?.avatar_url || u.user_metadata?.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(u.id)}`,
+              isLoggedIn: true
+            };
+            handleSaveProfile(loggedProfile);
+
+            // If there is an active sync state, push this authenticated session details straight to the backend
+            if (syncId && data.session) {
+              fetch("/api/auth/save-session", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ syncId, session: data.session, profile: loggedProfile })
+              }).then(() => {
+                if (window.name === "AisoGoogleAuthPopup") {
+                  setTimeout(() => {
+                    window.close();
+                  }, 1000);
+                }
+              }).catch(err => console.warn("Erro ao registrar do código no servidor:", err));
+            }
+
+            // If this is the callback popup, immediately broadcast session details to opener
+            if (window.name === "AisoGoogleAuthPopup" && window.opener && data.session) {
+              window.opener.postMessage({
+                type: "SUPABASE_SESSION_ESTABLISHED",
+                session: data.session,
+                profile: loggedProfile
+              }, window.location.origin);
+            }
+          }
+        } catch (err) {
+          console.error("Falha ao processar código de login direto:", err);
+        }
+      };
+
+      doAuthSyncAndExchange();
     }
 
     // 2. PostMessage listener for popup window login events
@@ -359,10 +480,31 @@ export default function App() {
         return;
       }
 
+      // Handle session transmitted directly from popup to opener (e.g. cross-partition scenarios)
+      if (event.data?.type === "SUPABASE_SESSION_ESTABLISHED") {
+        const { session, profile: remoteProfile } = event.data;
+        if (session) {
+          try {
+            const { error } = await supabase.auth.setSession({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token
+            });
+            if (error) throw error;
+            
+            if (remoteProfile) {
+              handleSaveProfile(remoteProfile);
+            }
+          } catch (e) {
+            console.error("Erro ao aplicar sessão transmitida via postMessage:", e);
+          }
+        }
+      }
+
       if (event.data?.type === "SUPABASE_AUTH_CALLBACK") {
         const { search } = event.data;
         const params = new URLSearchParams(search);
         const popupCode = params.get("code");
+        const popupSyncId = params.get("syncId");
 
         if (popupCode) {
           try {
@@ -379,6 +521,24 @@ export default function App() {
                 isLoggedIn: true
               };
               handleSaveProfile(loggedProfile);
+
+              // Push session details straight to coordination server just in case
+              if (popupSyncId && data.session) {
+                fetch("/api/auth/save-session", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ syncId: popupSyncId, session: data.session, profile: loggedProfile })
+                }).catch(err => console.warn("Erro ao registrar sessão coordenada no servidor:", err));
+              }
+
+              // Broadcast it just in case
+              if (window.name === "AisoGoogleAuthPopup" && window.opener && data.session) {
+                window.opener.postMessage({
+                  type: "SUPABASE_SESSION_ESTABLISHED",
+                  session: data.session,
+                  profile: loggedProfile
+                }, window.location.origin);
+              }
             }
           } catch (err) {
             console.error("Falha ao processar código de login com o Google:", err);
@@ -391,6 +551,31 @@ export default function App() {
     window.addEventListener("message", handleOAuthMessage);
     return () => window.removeEventListener("message", handleOAuthMessage);
   }, []);
+
+  // 3. Multi-instance window/tab synchronization through standard HTML5 Storage events
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "aiso_user_profile" && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed && parsed.isLoggedIn && !profile.isLoggedIn) {
+            setProfile(parsed);
+            
+            // Re-read local storage supabase session to keep instance client in-sync
+            supabase.auth.getSession().then(({ data: { session } }) => {
+              if (session) {
+                // Done!
+              }
+            });
+          }
+        } catch (err) {
+          console.error("Error matching storage event for login sync:", err);
+        }
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [profile.isLoggedIn]);
 
   // Save activities to localStorage when they change
   useEffect(() => {
@@ -493,8 +678,6 @@ export default function App() {
   // Save changes helper functions
   const handleSaveProfile = (newProfile: UserProfile) => {
     setProfile(newProfile);
-    setView("main");
-    setIsLoginLoading(false);
     localStorage.setItem("aiso_user_profile", JSON.stringify(newProfile));
     if (isKeysConfigured && newProfile.isLoggedIn && newProfile.uid) {
       syncUserProfile(newProfile.uid, newProfile);
