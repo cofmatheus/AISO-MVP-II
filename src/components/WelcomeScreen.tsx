@@ -6,15 +6,31 @@ import { signInWithGoogleSupabase, isSupabaseConfigured } from "../lib/supabase"
 
 interface WelcomeScreenProps {
   onLogin: (profile: UserProfile) => void;
+  onLoginWithGoogle?: () => Promise<void>;
+  loading?: boolean;
+  errorMsg?: string;
 }
 
-export default function WelcomeScreen({ onLogin }: WelcomeScreenProps) {
-  const [loading, setLoading] = useState<boolean>(false);
-  const [errorMsg, setErrorMsg] = useState<string>("");
+export default function WelcomeScreen({ 
+  onLogin, 
+  onLoginWithGoogle, 
+  loading: parentLoading = false, 
+  errorMsg: parentErrorMsg = "" 
+}: WelcomeScreenProps) {
+  const [localLoading, setLocalLoading] = useState<boolean>(false);
+  const [localErrorMsg, setLocalErrorMsg] = useState<string>("");
+
+  const loading = parentLoading || localLoading;
+  const errorMsg = parentErrorMsg || localErrorMsg;
 
   const handleRealGoogleLogin = async () => {
-    setErrorMsg("");
-    setLoading(true);
+    if (onLoginWithGoogle) {
+      await onLoginWithGoogle();
+      return;
+    }
+
+    setLocalErrorMsg("");
+    setLocalLoading(true);
     try {
       if (!isSupabaseConfigured) {
         throw new Error("Supabase não configurado. Por favor, adicione as variáveis no seu .env ou nas Configurações da plataforma.");
@@ -38,9 +54,9 @@ export default function WelcomeScreen({ onLogin }: WelcomeScreenProps) {
       }
     } catch (err: any) {
       console.error("Erro ao iniciar login Google:", err);
-      setErrorMsg(err.message || "Erro desconhecido ao abrir tela de login.");
+      setLocalErrorMsg(err.message || "Erro desconhecido ao abrir tela de login.");
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
   };
 

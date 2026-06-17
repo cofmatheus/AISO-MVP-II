@@ -23,7 +23,7 @@ import {
   saveRemoteSettings, 
   fetchRemoteSettings 
 } from "./lib/firebase";
-import { supabase, isSupabaseConfigured } from "./lib/supabase";
+import { supabase, isSupabaseConfigured, signInWithGoogleSupabase } from "./lib/supabase";
 
 // Local storage key names
 const STORAGE_SESSIONS = "desmame_sessions";
@@ -122,6 +122,84 @@ export default function App() {
   const handleSetActiveActivity = (act: string) => {
     setActiveActivity(act);
     localStorage.setItem("aiso_active_activity", act);
+  };
+
+  const [oauthError, setOauthError] = useState<string>("");
+  const [isLoginLoading, setIsLoginLoading] = useState<boolean>(false);
+
+  // Starts the custom Google login redirect inside a browser popup and polls its location
+  // to grab the authentication code as soon as it returns same-origin! This bypasses completely
+  // any browser third-party iframe cookie/localStorage partition borders!
+  const handleStartGoogleLogin = async () => {
+    setOauthError("");
+    setIsLoginLoading(true);
+    try {
+      if (!isSupabaseConfigured) {
+        throw new Error("Supabase não configurado. Por favor, adicione as variáveis no seu .env ou nas Configurações da plataforma.");
+      }
+
+      const authUrl = await signInWithGoogleSupabase();
+      
+      const width = 600;
+      const height = 700;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      
+      const popupWindow = window.open(
+        authUrl,
+        "AisoGoogleAuthPopup",
+        `width=${width},height=${height},top=${top},left=${left},status=no,resizable=yes,scrollbars=yes`
+      );
+
+      if (!popupWindow) {
+        throw new Error("O bloqueador de popups impediu a abertura da janela. Por favor, libere popups para poder autenticar.");
+      }
+
+      // Check popup location every 500ms to instantly secure authorization code
+      const intervalId = setInterval(async () => {
+        if (popupWindow.closed) {
+          clearInterval(intervalId);
+          setIsLoginLoading(false);
+          return;
+        }
+
+        try {
+          // If we can read popupWindow.location, they are same-origin
+          const popupUrl = new URL(popupWindow.location.href);
+          const searchParams = new URLSearchParams(popupUrl.search);
+          const code = searchParams.get("code");
+
+          if (code) {
+            clearInterval(intervalId);
+            popupWindow.close();
+
+            // Run direct code-to-session exchange in primary tab!
+            const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+            if (error) throw error;
+
+            if (data?.user) {
+              const u = data.user;
+              const loggedProfile: UserProfile = {
+                uid: u.id,
+                name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "Membro Contemplativo",
+                email: u.email || "",
+                photoURL: u.user_metadata?.avatar_url || u.user_metadata?.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(u.id)}`,
+                isLoggedIn: true
+              };
+              handleSaveProfile(loggedProfile);
+            }
+            setIsLoginLoading(false);
+          }
+        } catch (e) {
+          // Cross-origin access raises security exception when popup is on external / accounts.google.com domain. Ignored safely.
+        }
+      }, 500);
+
+    } catch (err: any) {
+      console.error("Erro ao iniciar login Google:", err);
+      setOauthError(err.message || "Erro desconhecido ao abrir tela de login.");
+      setIsLoginLoading(false);
+    }
   };
 
   // Load from localStorage on initialization
@@ -459,7 +537,12 @@ export default function App() {
     return (
       <div className="relative min-h-screen bg-surface text-on-surface paper-texture select-none transition-colors duration-500 overflow-x-hidden font-sans">
         {settings.enablePaperGrain && <div className="grain-overlay" />}
-        <WelcomeScreen onLogin={handleSaveProfile} />
+        <WelcomeScreen 
+          onLogin={handleSaveProfile} 
+          onLoginWithGoogle={handleStartGoogleLogin}
+          loading={isLoginLoading}
+          errorMsg={oauthError}
+        />
       </div>
     );
   }
