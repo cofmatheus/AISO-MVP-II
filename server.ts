@@ -103,6 +103,33 @@ Por favor:
     }
   });
 
+  // In-memory registry to coordinate partitioned Supabase logins across frames and popup windows
+  const activeAuthSessions = new Map<string, { session: any; profile: any }>();
+
+  // Popup pushes authenticated session here
+  app.post("/api/auth/save-session", (req, res) => {
+    const { syncId, session, profile } = req.body;
+    if (!syncId || !session) {
+      return res.status(400).json({ error: "Missing syncId or session parameters" });
+    }
+    activeAuthSessions.set(syncId, { session, profile });
+    res.json({ success: true });
+  });
+
+  // Main tab polls here to see if popup successfully authenticated
+  app.get("/api/auth/poll-session", (req, res) => {
+    const { syncId } = req.query;
+    if (!syncId || typeof syncId !== "string") {
+      return res.status(400).json({ error: "Missing or invalid syncId parameter" });
+    }
+    const data = activeAuthSessions.get(syncId);
+    if (data) {
+      activeAuthSessions.delete(syncId); // Consume once
+      return res.json({ pending: false, session: data.session, profile: data.profile });
+    }
+    res.json({ pending: true });
+  });
+
   // OAuth Google callback endpoint
   app.get(["/auth/callback", "/auth/callback/"], (req, res) => {
     res.setHeader("Content-Type", "text/html");
