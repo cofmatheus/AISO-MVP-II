@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { AppSettings, PracticeSession, ErrorLog, UserProfile } from "../types";
+import { generateAisoAdvice } from "../lib/gemini";
 import { 
   Settings, 
   HelpCircle, 
@@ -264,6 +265,32 @@ export default function MainScreen({
   const [currentTip, setCurrentTip] = useState<string>("");
   const [isGeneratingTip, setIsGeneratingTip] = useState<boolean>(false);
   const [tipAnimationKey, setTipAnimationKey] = useState<number>(0);
+
+  // Gemini Personalized Art Advisor States
+  const [adviceText, setAdviceText] = useState<string>("");
+  const [isLoadingAdvice, setIsLoadingAdvice] = useState<boolean>(false);
+  const [errorAdvice, setErrorAdvice] = useState<string | null>(null);
+
+  const fetchGeminiAdvice = async () => {
+    if (isLoadingAdvice) return;
+    setIsLoadingAdvice(true);
+    setErrorAdvice(null);
+    try {
+      const response = await generateAisoAdvice(activeActivity);
+      setAdviceText(response);
+    } catch (err: any) {
+      console.error("Failed to generate Gemini manual art advice:", err);
+      setErrorAdvice(err.message || "Não foi possível resgatar o conselho sintonizado.");
+    } finally {
+      setIsLoadingAdvice(false);
+    }
+  };
+
+  // Clear previous advice whenever user switches active path to keep details cohesive
+  React.useEffect(() => {
+    setAdviceText("");
+    setErrorAdvice(null);
+  }, [activeActivity]);
 
   // Active news / literature tab for sidebar
   const [activeAsideTab, setActiveAsideTab] = useState<"news" | "artigo">("news");
@@ -1207,6 +1234,54 @@ export default function MainScreen({
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Gemini Personalized Art and Mixed Media Advice Panel */}
+          <div className="bg-gradient-to-br from-[#2541B2]/5 via-[#2541B2]/2 to-transparent border border-[#2541B2]/20 rounded-xl p-3.5 space-y-3.5 mt-1 shadow-sm" id="gemini-personalized-advice-card">
+            <div className="flex justify-between items-center border-b border-[#2541B2]/10 pb-1.5">
+              <h4 className="flex items-center gap-1.5 text-[10.5px] uppercase font-mono tracking-widest font-black text-[#2541B2]">
+                <Sparkles size={11} className="text-amber-500 animate-pulse shrink-0" />
+                <span>Orientação Artística Gemini</span>
+              </h4>
+              <button
+                type="button"
+                onClick={fetchGeminiAdvice}
+                disabled={isLoadingAdvice}
+                className="text-[8px] font-mono uppercase tracking-widest leading-none bg-[#2541B2] text-[#F7F7FF] px-2 py-1 rounded hover:bg-[#1E3491] active:translate-y-px transition-all disabled:opacity-50 cursor-pointer font-bold shrink-0 shadow-sm"
+              >
+                {isLoadingAdvice ? "Sintonizando..." : adviceText ? "Sintonizar Novamente" : "Sintonizar Conselho"}
+              </button>
+            </div>
+
+            <div className="text-[10px] text-slate-700 leading-relaxed font-sans min-h-[50px] flex flex-col justify-center">
+              {isLoadingAdvice ? (
+                <div className="space-y-1.5 py-1">
+                  <div className="h-2 w-3/4 bg-[#2541B2]/10 rounded animate-pulse" />
+                  <div className="h-2 w-full bg-[#2541B2]/10 rounded animate-pulse" />
+                  <div className="h-2 w-5/6 bg-[#2541B2]/10 rounded animate-pulse" />
+                  <span className="text-[8px] font-mono italic text-[#2541B2]/60 animate-pulse block pt-1 uppercase tracking-wider font-semibold">
+                    Extraindo insights do silêncio analógico...
+                  </span>
+                </div>
+              ) : errorAdvice ? (
+                <p className="text-rose-500 font-mono text-[9px] border border-rose-100 bg-rose-50/50 p-2 rounded-lg leading-normal">
+                  <strong>Erro:</strong> {errorAdvice}
+                </p>
+              ) : adviceText ? (
+                <div className="space-y-1.5 text-[#2541B2]/90 italic font-serif leading-relaxed markdown-body">
+                  {parseMarkdownToHTML(adviceText)}
+                </div>
+              ) : (
+                <div className="space-y-1.5 pt-0.5 text-left">
+                  <p className="text-[#2541B2]/85 text-[10px]">
+                    Sintonize uma orientação de <strong className="font-semibold text-[#2541B2]">Mixed Media</strong> e técnicas manuais clássicas offline para sua prática de <strong className="font-semibold italic font-serif">"{currentActivityDetail.label}"</strong>.
+                  </p>
+                  <p className="text-[8px] text-[#2541B2]/50 font-mono leading-tight uppercase tracking-wider font-bold">
+                    🌿 idealizada para desconexão ativa.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Dicas do AISO (Separado e sempre visível como solicitado) */}
           <div className="bg-[#2541B2]/3 border border-[#2541B2]/10 p-3.5 rounded-xl space-y-3 mt-1" id="news-sidebar-dicas-aiso">

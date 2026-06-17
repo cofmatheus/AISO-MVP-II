@@ -146,7 +146,7 @@ export default function App() {
     }
   }, []);
 
-  // Supabase Google SSO Callback message listener and session restoration
+  // Supabase Google SSO Callback message listener, session restoration and fallback polling
   useEffect(() => {
     if (!isSupabaseConfigured) return;
 
@@ -166,7 +166,27 @@ export default function App() {
       }
     });
 
-    // 2. Listen for auth changes to sync state seamlessly
+    // 2. Poll for active session changes on storage/cookies while the user is NOT logged in.
+    // This allows the main tab to instantly detect when the user finishes authenticating in the popup ("tela menor")!
+    const activeInterval = setInterval(() => {
+      if (!profile.isLoggedIn) {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session?.user) {
+            const u = session.user;
+            const loggedProfile: UserProfile = {
+              uid: u.id,
+              name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "Membro Contemplativo",
+              email: u.email || "",
+              photoURL: u.user_metadata?.avatar_url || u.user_metadata?.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(u.id)}`,
+              isLoggedIn: true
+            };
+            handleSaveProfile(loggedProfile);
+          }
+        });
+      }
+    }, 1500);
+
+    // 3. Listen for auth changes to sync state seamlessly
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         const u = session.user;
@@ -186,26 +206,61 @@ export default function App() {
     });
 
     return () => {
+      clearInterval(activeInterval);
       subscription.unsubscribe();
     };
-  }, []);
+  }, [profile.isLoggedIn]);
 
   // PostMessage popup response listener for Supabase authentication callback exchange
+  // AND direct window redirect callback check on page load
   useEffect(() => {
+    // 1. Immediate URL parameter check on load (fallback when popup redirects parent or is redirected directly)
+    const queryParams = new URLSearchParams(window.location.search);
+    const code = queryParams.get("code");
+
+    if (code) {
+      // Remove query parameters from url so they don't linger in address bar
+      const newUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, document.title, newUrl);
+
+      supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+        if (error) throw error;
+        if (data?.user) {
+          const u = data.user;
+          const loggedProfile: UserProfile = {
+            uid: u.id,
+            name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "Membro Contemplativo",
+            email: u.email || "",
+            photoURL: u.user_metadata?.avatar_url || u.user_metadata?.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(u.id)}`,
+            isLoggedIn: true
+          };
+          handleSaveProfile(loggedProfile);
+        }
+      }).catch(err => {
+        console.error("Falha ao processar código de login direto:", err);
+      });
+    }
+
+    // 2. PostMessage listener for popup window login events
     const handleOAuthMessage = async (event: MessageEvent) => {
       const origin = event.origin;
-      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+      const isAllowedOrigin = origin === window.location.origin || 
+        origin.endsWith('.run.app') || 
+        origin.includes('localhost') || 
+        origin.includes('127.0.0.1');
+
+      if (!isAllowedOrigin) {
         return;
       }
 
       if (event.data?.type === "SUPABASE_AUTH_CALLBACK") {
         const { search } = event.data;
         const params = new URLSearchParams(search);
-        const code = params.get("code");
+        const popupCode = params.get("code");
 
-        if (code) {
+        if (popupCode) {
           try {
-            const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+            const { data, error } = await supabase.auth.exchangeCodeForSession(popupCode);
             if (error) throw error;
             
             if (data?.user) {
@@ -370,10 +425,39 @@ export default function App() {
     setView("main");
   };
 
+  // If we are currently inside the popup window itself, render a beautiful and simplified login-success closing instruction page.
+  // This prevents the heavy full dashboard from launching inside the popup "smaller screen" itself!
+  if (window.name === "AisoGoogleAuthPopup") {
+    return (
+      <div className="relative min-h-screen bg-[#F7F7FF] text-[#2541B2] flex flex-col items-center justify-center p-6 text-center paper-texture select-none">
+        {settings.enablePaperGrain && <div className="grain-overlay" />}
+        <div className="max-w-xs space-y-6 mx-auto">
+          <div className="w-16 h-16 bg-[#2541B2]/5 border border-[#2541B2]/15 rounded-full flex items-center justify-center mx-auto text-[#2541B2] animate-bounce">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <div className="space-y-2">
+            <h2 className="font-serif text-lg uppercase tracking-widest font-black">Conectado com Sucesso!</h2>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Sua conta foi vinculada. A tela principal do AISO já foi sincronizada e está pronta para uso!
+            </p>
+          </div>
+          <button
+            onClick={() => window.close()}
+            className="w-full py-2.5 px-4 bg-[#2541B2] hover:bg-[#1E3491] text-white font-mono uppercase text-xs tracking-wider rounded-lg transition-all duration-300 shadow-md font-bold"
+          >
+            Fechar Janela
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // If user is not authenticated with Google, show the stunning initial login screen!
   if (!profile.isLoggedIn) {
     return (
-      <div className="relative min-h-screen bg-surface text-on-surface paper-texture select-none transition-colors duration-500 overflow-x-hidden">
+      <div className="relative min-h-screen bg-surface text-on-surface paper-texture select-none transition-colors duration-500 overflow-x-hidden font-sans">
         {settings.enablePaperGrain && <div className="grain-overlay" />}
         <WelcomeScreen onLogin={handleSaveProfile} />
       </div>

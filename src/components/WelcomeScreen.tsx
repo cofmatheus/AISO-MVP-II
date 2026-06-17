@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { UserProfile } from "../types";
 import { motion, AnimatePresence } from "motion/react";
-import { LogIn, Sparkles, AlertCircle, HelpCircle, ShieldCheck, ShieldAlert, BookOpen } from "lucide-react";
+import { LogIn, Sparkles, AlertCircle, HelpCircle, ShieldCheck, ShieldAlert, BookOpen, Palette } from "lucide-react";
 import { signInWithGoogleSupabase, isSupabaseConfigured } from "../lib/supabase";
 
 interface WelcomeScreenProps {
@@ -87,6 +87,19 @@ export default function WelcomeScreen({ onLogin }: WelcomeScreenProps) {
         >
           <div className="space-y-6 text-center">
             <div className="text-left space-y-3.5 text-xs text-slate-700 font-sans leading-relaxed">
+              {/* Bloco de Destaque Especial: Mixed Media & Artes Manuais */}
+              <div className="bg-[#2541B2]/5 border border-[#2541B2]/15 p-5 rounded-xl space-y-2.5 mb-2">
+                <div className="flex items-center gap-2.5 text-[#2541B2]">
+                  <Palette size={18} className="shrink-0" />
+                  <h3 className="font-serif text-xs md:text-sm font-black uppercase tracking-widest">
+                    Criação Offline & Mixed Media
+                  </h3>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  A verdadeira excelência em design e artes visuais exige o domínio da matéria física. Este santuário digital foi desenhado para estruturar o desenvolvimento de <strong className="text-[#2541B2]">técnicas mistas (mixed media)</strong>, colagens táteis, desenho acadêmico, cadernos de rascunhos livres e artesanato tridimensional. O tempo longe das telas, focado no atrito real do carvão, dos pigmentos e das colas físicas, solidifica a percepção espacial e estética indispensável para qualquer criador.
+                </p>
+              </div>
+
               <div className="flex gap-3 items-start">
                 <div className="w-5 h-5 rounded-full bg-[#2541B2]/10 border border-[#2541B2]/25 flex items-center justify-center shrink-0 mt-0.5 text-[#2541B2]">
                   <Sparkles size={11} />

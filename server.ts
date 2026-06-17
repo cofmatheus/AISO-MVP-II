@@ -68,6 +68,41 @@ Por favor, siga estas diretrizes essenciais ao responder:
     }
   });
 
+  // Unique route for customized offline arts/mixed-media advise
+  app.post("/api/gemini-advice", async (req, res) => {
+    try {
+      const { context } = req.body;
+      
+      const systemInstruction = `
+Você é o Conselheiro de Artes Manuais do AISO. Sua especialidade absoluta é guiar artistas e entusiastas no uso inteligente de Mixed Media (mídias mistas), colagens físicas, técnicas e conhecimentos manuais e off-line na confecção de artes modernas.
+Deixe bem claro a importância fundamental de tocar matérias físicas, misturar ferramentas analógicas e dominar técnicas longe de telas digitais para enriquecer o repertório criativo das artes.
+
+Forneça uma recomendação personalizada focada na atividade do usuário, trazendo ideias e um desafio prático de mixed-media e artes manuais clássicas.
+Por favor:
+- Responda em Português do Brasil com tom inspirador, acolhedor e altamente instigante para o artesanato físico.
+- Mantenha a resposta concisa (máximo 3 parágrafos curtos), útil e idealizada para desconexão ativa.
+- Use formatação Markdown simples (tópicos, negritos suaves).
+- Nunca cite terminologias de código ou APIs. Seja estritamente um mestre das artes físicas clássicas.
+`.trim();
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          { role: "user", parts: [{ text: `Atividade ativa: "${context || "Artes manuais variadas"}". Descreva um desafio de Mixed Media/Artes Manuais física adequado para este contexto.` }] }
+        ],
+        config: {
+          systemInstruction,
+          temperature: 0.8,
+        }
+      });
+
+      res.json({ text: response.text });
+    } catch (error: any) {
+      console.error("Gemini Advice Error:", error);
+      res.status(500).json({ error: error.message || "Não foi possível obter a orientação artística no momento." });
+    }
+  });
+
   // OAuth Google callback endpoint
   app.get(["/auth/callback", "/auth/callback/"], (req, res) => {
     res.setHeader("Content-Type", "text/html");
@@ -130,15 +165,31 @@ Por favor, siga estas diretrizes essenciais ao responder:
           </div>
           <script>
             // Send back the callback query attributes inside search and hash URLs
-            if (window.opener) {
-              window.opener.postMessage({
-                type: "SUPABASE_AUTH_CALLBACK",
-                search: window.location.search,
-                hash: window.location.hash
-              }, "*");
-              window.close();
-            } else {
-              window.location.href = "/";
+            try {
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: "SUPABASE_AUTH_CALLBACK",
+                  search: window.location.search,
+                  hash: window.location.hash
+                }, "*");
+                // Close after a short delay
+                setTimeout(function() {
+                  window.close();
+                }, 200);
+              } else {
+                window.location.href = "/" + window.location.search + window.location.hash;
+              }
+            } catch (e) {
+              console.error("Popup communication error, trying fallback redirect:", e);
+              try {
+                // Try setting opener location directly if postMessage is blocked
+                window.opener.location.href = window.location.origin + "/" + window.location.search + window.location.hash;
+                setTimeout(function() {
+                  window.close();
+                }, 100);
+              } catch (err2) {
+                window.location.href = "/" + window.location.search + window.location.hash;
+              }
             }
           </script>
         </body>
